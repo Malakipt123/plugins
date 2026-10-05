@@ -1,0 +1,760 @@
+<title>O Faroleiro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=IBM+Plex+Mono:wght@400;600&family=Work+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: one-screen night scene — HUD strip as a keeper's log line, the sea as the stage, a single pump control below.
+     Deliberately single-theme (night at sea), so every color is set explicitly on a dark ground. */
+  :root {
+    --ink: #08121b;        /* night sky / page */
+    --sea: #0e2433;        /* water */
+    --hull: #1a2a36;       /* unlit things */
+    --lamp: #ffcf6e;       /* sodium-amber lamp light */
+    --foam: #d6e4ea;       /* text, surf */
+    --muted: #7f97a6;      /* secondary text */
+    --port: #e5574b;       /* port (red) nav light, danger */
+    --starboard: #4cc38a;  /* starboard (green) nav light, safe */
+    --display: "Young Serif", "Iowan Old Style", Georgia, serif;
+    --body: "Work Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    background: var(--ink);
+    color: var(--foam);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .app {
+    max-width: 980px;
+    margin: 0 auto;
+    padding-inline: 16px;
+    padding-block: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 16px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(1.6rem, 4.5vw, 2.3rem);
+    line-height: 1.1;
+    margin: 0;
+    color: var(--lamp);
+    text-wrap: balance;
+  }
+  .station {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    border-block: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+    padding-block: 7px;
+  }
+  .hud .k {
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+    margin-right: 6px;
+  }
+  .hud .v { color: var(--foam); font-weight: 600; }
+  .wrecks { display: inline-flex; gap: 4px; vertical-align: middle; }
+  .wrecks i {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 1.5px solid var(--muted);
+    display: inline-block;
+  }
+  .wrecks i.on { background: var(--port); border-color: var(--port); }
+  .oil { display: inline-flex; align-items: center; gap: 8px; }
+  .meter {
+    width: 110px; height: 8px;
+    background: color-mix(in srgb, var(--muted) 25%, transparent);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .meter b {
+    display: block; height: 100%; width: 100%;
+    background: var(--lamp);
+    transition: background-color .2s;
+  }
+  .meter b.low { background: var(--port); }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    max-height: 72vh;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--sea);
+  }
+  @media (max-width: 620px) {
+    .stage { aspect-ratio: 3 / 4; }
+  }
+  canvas {
+    display: block;
+    width: 100%; height: 100%;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .overlay {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    padding: 16px;
+    background: color-mix(in srgb, var(--ink) 55%, transparent);
+  }
+  .card {
+    max-width: 30rem;
+    width: 100%;
+    background: color-mix(in srgb, var(--ink) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--lamp) 35%, transparent);
+    border-radius: 6px;
+    padding: 20px 22px;
+    display: flex; flex-direction: column; gap: 10px;
+    max-height: 100%;
+    overflow: auto;
+  }
+  .card h2 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 1.6rem;
+    margin: 0;
+    color: var(--lamp);
+    text-wrap: balance;
+  }
+  .card p { margin: 0; }
+  .card ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 4px; color: var(--foam); }
+  .card .note { color: var(--muted); font-size: 0.85rem; }
+  button {
+    font: inherit;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:focus-visible { outline: 2px solid var(--lamp); outline-offset: 3px; }
+  .primary {
+    align-self: flex-start;
+    background: var(--lamp);
+    color: var(--ink);
+    border: 0;
+    padding: 10px 18px;
+    margin-top: 4px;
+  }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+  }
+  #pump {
+    background: transparent;
+    color: var(--lamp);
+    border: 1.5px solid var(--lamp);
+    padding: 10px 18px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  #pump.active { background: var(--lamp); color: var(--ink); }
+  .hint { color: var(--muted); font-size: 0.85rem; margin: 0; min-width: 0; flex: 1 1 16rem; }
+  kbd {
+    font-family: var(--mono); font-size: 0.78rem;
+    border: 1px solid color-mix(in srgb, var(--muted) 50%, transparent);
+    border-radius: 3px; padding: 0 4px;
+  }
+</style>
+
+<div class="app">
+  <header>
+    <h1>O Faroleiro</h1>
+    <span class="station">Farol do Cabo Negro · Lp B 5s · alcance 18 M</span>
+  </header>
+
+  <div class="hud" aria-live="polite">
+    <span><span class="k">Noite</span><span class="v" id="hNight">1</span></span>
+    <span><span class="k">Avisados</span><span class="v" id="hSaved">0</span></span>
+    <span><span class="k">Naufrágios</span><span class="wrecks" id="hWrecks"><i></i><i></i><i></i></span></span>
+    <span class="oil"><span class="k">Óleo</span><span class="meter"><b id="hOil"></b></span></span>
+    <span><span class="k">Recorde</span><span class="v" id="hBest">0</span></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="c" aria-label="Mar à noite com o farol em baixo. Roda o feixe para avisar os navios."></canvas>
+    <div class="overlay" id="overlay">
+      <div class="card" id="card">
+        <h2 id="cTitle">Cai a noite no Cabo Negro</h2>
+        <div id="cBody">
+          <p>Os navios não veem as rochas. Aponta o feixe do farol a cada navio até ele perceber o perigo e virar para o largo.</p>
+        </div>
+        <ul id="cList">
+          <li>Move o rato ou arrasta o dedo para rodar o feixe. No teclado: <kbd>←</kbd> <kbd>→</kbd>.</li>
+          <li>Um navio precisa de ficar um instante na luz. O arco por cima dele mostra quanto falta.</li>
+          <li>O candeeiro gasta óleo. Segura <b>Bombear</b> (ou <kbd>Espaço</kbd>) para o encher, mas o farol apaga-se enquanto bombeias.</li>
+          <li>À terceira embarcação perdida, a Marinha desativa o farol.</li>
+        </ul>
+        <button class="primary" id="cBtn" type="button">Acender o farol</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="pump" type="button">Bombear óleo</button>
+    <p class="hint">Segura para bombear. Luzes de navegação: <span style="color:var(--port)">vermelho</span> a bombordo, <span style="color:var(--starboard)">verde</span> a estibordo.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const stage = document.getElementById('stage');
+  const $ = id => document.getElementById(id);
+  const overlay = $('overlay'), cTitle = $('cTitle'), cBody = $('cBody'), cList = $('cList'), cBtn = $('cBtn');
+  const pumpBtn = $('pump');
+  const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const COL = {
+    lamp: '#ffcf6e', foam: '#d6e4ea', port: '#e5574b', star: '#4cc38a',
+    hull: '#1a2a36', hullEdge: '#2d4252', litHull: '#e9d6a6', litEdge: '#6b4a24',
+    rock: '#121c24', rockLit: '#5c5a52', land: '#050b10'
+  };
+
+  // ---------- best score (per-viewer convenience) ----------
+  const BEST_KEY = 'faroleiro.recorde';
+  let best = 0;
+  try { best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0; } catch (e) {}
+  function saveBest() { try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {} }
+
+  // ---------- canvas sizing ----------
+  let W = 800, H = 600, S = 1;
+  function resize() {
+    const r = cv.getBoundingClientRect();
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    W = Math.max(200, r.width); H = Math.max(200, r.height);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    S = Math.max(0.7, Math.min(1.4, Math.min(W, H) / 560));
+  }
+  new ResizeObserver(resize).observe(stage);
+  resize();
+
+  // ---------- seeded random for the coastline ----------
+  let seed = 7;
+  const srand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  // Rocks live in normalized coords so they survive resizes.
+  const rocks = [];
+  (function buildRocks() {
+    const xs = [0.08, 0.2, 0.33, 0.43, 0.58, 0.69, 0.81, 0.93];
+    xs.forEach((x, i) => {
+      const pts = [];
+      const n = 7 + Math.floor(srand() * 3);
+      for (let k = 0; k < n; k++) pts.push(0.65 + srand() * 0.45);
+      rocks.push({
+        x: x + (srand() - 0.5) * 0.05,
+        y: 0.6 + srand() * 0.2 + (i % 2) * 0.03,
+        r: 13 + srand() * 12,
+        pts, rot: srand() * Math.PI
+      });
+    });
+  })();
+
+  // Coast top edge profile
+  const coast = [];
+  for (let i = 0; i <= 24; i++) coast.push(0.915 + srand() * 0.03);
+
+  const lampPos = () => ({ x: W * 0.5, y: H * 0.865 });
+
+  // ---------- state ----------
+  const g = {
+    mode: 'menu', night: 1, saved: 0, wrecks: 0, oil: 100, pumping: false,
+    ships: [], parts: [], texts: [], spawnLeft: 0, spawnTimer: 0,
+    nightSaved: 0, nightWrecks: 0, t: 0
+  };
+  let ang = -Math.PI / 2, aimAng = -Math.PI / 2;
+  const keys = {};
+  const BEAM_HALF = 0.15;
+  const fogs = Array.from({ length: 6 }, () => ({ x: Math.random(), y: rand(0.05, 0.75), r: rand(0.18, 0.32), vx: rand(0.006, 0.018) }));
+  const rain = Array.from({ length: 90 }, () => ({ x: Math.random(), y: Math.random(), l: rand(8, 16) }));
+
+  const fogLevel = () => g.night < 2 ? 0 : Math.min(0.75, 0.25 + 0.1 * (g.night - 2) + 0.15 * Math.sin(g.t * 0.12));
+  const stormy = () => g.night >= 3;
+  const lampOn = () => g.mode !== 'play' || (!g.pumping && g.oil > 0);
+  const beamReach = () => Math.hypot(W / 2, H) * (1 - fogLevel() * 0.5);
+
+  function startNight() {
+    g.mode = 'play';
+    g.ships = []; g.parts = []; g.texts = [];
+    g.spawnLeft = 5 + g.night * 3;
+    g.spawnTimer = 1.2;
+    g.nightSaved = 0; g.nightWrecks = 0;
+    g.oil = 100;
+    overlay.hidden = true;
+    cv.focus({ preventScroll: true });
+  }
+  function newGame() {
+    g.night = 1; g.saved = 0; g.wrecks = 0;
+    startNight();
+  }
+
+  function spawnShip() {
+    const rock = rocks[Math.floor(Math.random() * rocks.length)];
+    const x = rand(0.06, 0.94);
+    const big = Math.random() < Math.min(0.45, 0.1 * g.night);
+    g.ships.push({
+      x, y: -0.04, target: rock,
+      spd: (0.03 + 0.005 * g.night) * rand(0.85, 1.2) * (big ? 0.8 : 1),
+      size: big ? 1.45 : 1,
+      need: big ? 1.4 : 0.85,     // seconds of light needed
+      aware: 0, state: 'sail', h: Math.PI / 2, sink: 0, bob: Math.random() * 6
+    });
+  }
+
+  function shipPx(s) { return { x: s.x * W, y: s.y * H }; }
+
+  function inBeam(px, py) {
+    if (!lampOn()) return false;
+    const L = lampPos();
+    const dx = px - L.x, dy = py - L.y;
+    const d = Math.hypot(dx, dy);
+    if (d > beamReach()) return false;
+    let a = Math.atan2(dy, dx) - ang;
+    a = Math.atan2(Math.sin(a), Math.cos(a));
+    // a little extra width up close so nearby ships are fair to hit
+    return Math.abs(a) < BEAM_HALF + Math.min(0.2, 18 / Math.max(d, 1));
+  }
+
+  function burst(x, y, color, n, spd) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, v = rand(0.3, 1) * spd;
+      g.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rand(0.6, 1.4), max: 1.4, color });
+    }
+  }
+  function say(x, y, text, color) { g.texts.push({ x, y, text, color, life: 1.6 }); }
+
+  // ---------- update ----------
+  function update(dt) {
+    g.t += dt;
+
+    if (keys.ArrowLeft || keys.a) aimAng -= 1.9 * dt;
+    if (keys.ArrowRight || keys.d) aimAng += 1.9 * dt;
+    aimAng = Math.max(-Math.PI + 0.04, Math.min(-0.04, aimAng));
+
+    if (g.mode === 'menu' || g.mode === 'dawn' || g.mode === 'over') {
+      // idle sweep behind the overlay
+      aimAng = -Math.PI / 2 + Math.sin(g.t * 0.45) * 1.25;
+    }
+    // the lens assembly is heavy: rotate toward aim at a capped speed
+    let d = aimAng - ang;
+    const maxStep = 3.2 * dt;
+    ang += Math.max(-maxStep, Math.min(maxStep, d));
+
+    for (const f of fogs) { f.x += f.vx * dt; if (f.x - f.r > 1.1) f.x = -f.r - 0.1; }
+    if (stormy()) for (const r of rain) { r.y += dt * 1.4; r.x -= dt * 0.25; if (r.y > 1) { r.y = 0; r.x = Math.random() * 1.2; } }
+
+    if (g.mode === 'play') {
+      // oil
+      g.pumping = !!(keys[' '] || pumpHeld);
+      if (g.pumping) g.oil = Math.min(100, g.oil + 24 * dt);
+      else if (g.oil > 0) g.oil = Math.max(0, g.oil - (3 + 0.25 * g.night) * dt);
+
+      // spawning
+      if (g.spawnLeft > 0) {
+        g.spawnTimer -= dt;
+        if (g.spawnTimer <= 0) {
+          spawnShip(); g.spawnLeft--;
+          g.spawnTimer = Math.max(1.3, 4.4 - g.night * 0.45) * rand(0.75, 1.3);
+        }
+      }
+    }
+
+    for (const s of g.ships) {
+      s.bob += dt;
+      const p = shipPx(s);
+      if (s.state === 'sail') {
+        const tx = s.target.x * W, ty = s.target.y * H;
+        const want = Math.atan2(ty - p.y, tx - p.x);
+        s.h = want + (stormy() ? Math.sin(s.bob * 1.3) * 0.12 : 0);
+        const v = s.spd * H * dt;
+        s.x += Math.cos(s.h) * v / W; s.y += Math.sin(s.h) * v / H;
+
+        if (g.mode === 'play' && inBeam(p.x, p.y)) {
+          s.aware += dt / s.need;
+          if (s.aware >= 1) {
+            s.aware = 1; s.state = 'turn';
+            s.escape = s.x < 0.5 ? -Math.PI * 0.78 : -Math.PI * 0.22;
+            g.saved++; g.nightSaved++;
+            say(p.x, p.y - 18 * S, s.size > 1 ? 'Cargueiro avisado' : 'Avisado', COL.star);
+          }
+        } else {
+          s.aware = Math.max(0, s.aware - dt * 0.12);
+        }
+
+        // collision with rocks
+        for (const r of rocks) {
+          const rx = r.x * W, ry = r.y * H;
+          if (Math.hypot(rx - p.x, ry - p.y) < r.r * S * 0.85 + 5 * S * s.size) {
+            s.state = 'wreck';
+            if (g.mode === 'play') {
+              g.wrecks++; g.nightWrecks++;
+              say(p.x, p.y - 18 * S, 'Naufrágio', COL.port);
+            }
+            burst(p.x, p.y, COL.port, 18, 60 * S);
+            burst(p.x, p.y, COL.foam, 14, 40 * S);
+            break;
+          }
+        }
+      } else if (s.state === 'turn') {
+        let dh = s.escape - s.h; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+        s.h += Math.sign(dh) * Math.min(Math.abs(dh), 1.3 * dt);
+        const v = s.spd * 1.2 * H * dt;
+        s.x += Math.cos(s.h) * v / W; s.y += Math.sin(s.h) * v / H;
+      } else if (s.state === 'wreck') {
+        s.sink += dt * 0.45;
+      }
+    }
+    g.ships = g.ships.filter(s => !(s.sink >= 1 || s.x < -0.12 || s.x > 1.12 || s.y < -0.12));
+
+    for (const pa of g.parts) { pa.x += pa.vx * dt; pa.y += pa.vy * dt; pa.vx *= 0.97; pa.vy *= 0.97; pa.life -= dt; }
+    g.parts = g.parts.filter(pa => pa.life > 0);
+    for (const t of g.texts) { t.y -= 22 * dt; t.life -= dt; }
+    g.texts = g.texts.filter(t => t.life > 0);
+
+    if (g.mode === 'play') {
+      if (g.wrecks >= 3) endGame();
+      else if (g.spawnLeft === 0 && g.ships.every(s => s.state !== 'sail')) dawn();
+    }
+    if (g.mode === 'menu' && g.ships.length < 2 && Math.random() < dt * 0.4) spawnShip();
+  }
+
+  function dawn() {
+    g.mode = 'dawn';
+    const next = g.night + 1;
+    const warn = next === 2 ? 'Esta noite entra nevoeiro: o feixe chega menos longe.'
+      : next === 3 ? 'Vem temporal. Os navios guinam com a ondulação e aparecem cargueiros maiores.'
+      : 'Mais navios, mais depressa. O óleo também se gasta mais.';
+    showCard('Amanheceu',
+      `<p>Noite ${g.night} terminada: ${g.nightSaved} ${g.nightSaved === 1 ? 'navio avisado' : 'navios avisados'}, ${g.nightWrecks} ${g.nightWrecks === 1 ? 'naufrágio' : 'naufrágios'}.</p><p class="note">${warn}</p>`,
+      `Começar a noite ${next}`, () => { g.night = next; startNight(); });
+  }
+
+  function endGame() {
+    g.mode = 'over';
+    const isBest = g.saved > best;
+    if (isBest) { best = g.saved; saveBest(); }
+    showCard('Farol desativado',
+      `<p>Aguentaste ${g.night - 1} ${g.night - 1 === 1 ? 'noite completa' : 'noites completas'} e avisaste ${g.saved} ${g.saved === 1 ? 'navio' : 'navios'}.</p>` +
+      `<p class="note">${isBest ? 'Novo recorde neste dispositivo.' : 'Recorde neste dispositivo: ' + best + '.'}</p>`,
+      'Voltar a acender', newGame);
+  }
+
+  let cardAction = newGame;
+  function showCard(title, html, btn, action) {
+    cTitle.textContent = title;
+    cBody.innerHTML = html;
+    cList.hidden = true;
+    cBtn.textContent = btn;
+    cardAction = action;
+    overlay.hidden = false;
+    cBtn.focus({ preventScroll: true });
+  }
+  cBtn.addEventListener('click', () => cardAction());
+
+  // ---------- drawing ----------
+  function drawSea() {
+    const gr = ctx.createLinearGradient(0, 0, 0, H);
+    gr.addColorStop(0, '#071420');
+    gr.addColorStop(1, '#0f2a3a');
+    ctx.fillStyle = gr;
+    ctx.fillRect(0, 0, W, H);
+
+    // swell lines
+    ctx.strokeStyle = 'rgba(140,180,200,0.07)';
+    ctx.lineWidth = 1;
+    const t = reduceMotion ? 0 : g.t;
+    for (let row = 0; row < 16; row++) {
+      const y = (row + 0.5) / 16 * H * 0.9;
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 14) {
+        const yy = y + Math.sin(x * 0.02 + t * 0.8 + row) * 3 * S;
+        x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function rockPath(r) {
+    const cx = r.x * W, cy = r.y * H, rad = r.r * S;
+    ctx.beginPath();
+    r.pts.forEach((k, i) => {
+      const a = r.rot + i / r.pts.length * Math.PI * 2;
+      const x = cx + Math.cos(a) * rad * k, y = cy + Math.sin(a) * rad * k * 0.8;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.closePath();
+  }
+  function drawRock(r, lit) {
+    const cx = r.x * W, cy = r.y * H, rad = r.r * S;
+    if (!lit) {
+      // surf ring: the only hint a sailor gets in the dark
+      const p = reduceMotion ? 0.5 : (Math.sin(g.t * 1.4 + r.rot * 3) + 1) / 2;
+      ctx.strokeStyle = `rgba(214,228,234,${0.07 + p * 0.1})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rad * (1.25 + p * 0.15), rad * (1.0 + p * 0.12), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    rockPath(r);
+    ctx.fillStyle = lit ? COL.rockLit : COL.rock;
+    ctx.fill();
+    if (lit) { ctx.strokeStyle = 'rgba(255,230,180,0.5)'; ctx.lineWidth = 1; ctx.stroke(); }
+  }
+
+  function drawShip(s, lit) {
+    const p = shipPx(s);
+    const k = 1 - s.sink;
+    if (k <= 0) return;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(s.h + (s.state === 'wreck' ? s.sink * 0.9 : 0));
+    const L = 13 * S * s.size, B = 4.5 * S * s.size;
+    ctx.globalAlpha = k;
+    ctx.beginPath();
+    ctx.moveTo(L, 0);
+    ctx.quadraticCurveTo(L * 0.2, -B * 1.1, -L * 0.85, -B);
+    ctx.lineTo(-L * 0.85, B);
+    ctx.quadraticCurveTo(L * 0.2, B * 1.1, L, 0);
+    ctx.closePath();
+    ctx.fillStyle = lit ? COL.litHull : COL.hull;
+    ctx.strokeStyle = lit ? COL.litEdge : COL.hullEdge;
+    ctx.lineWidth = 1.2;
+    ctx.fill(); ctx.stroke();
+    // deckhouse
+    ctx.fillStyle = lit ? '#b98e55' : '#22333f';
+    ctx.fillRect(-L * 0.45, -B * 0.5, L * 0.45, B);
+
+    if (s.state !== 'wreck') {
+      // nav lights: port (left of heading) red, starboard green, masthead white
+      const glow = (x, y, c, r) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
+      glow(L * 0.1, -B * 1.05, COL.port, 1.8 * S);
+      glow(L * 0.1, B * 1.05, COL.star, 1.8 * S);
+      glow(L * 0.35, 0, '#f4f1e6', 1.4 * S);
+    }
+    ctx.restore();
+
+    // awareness arc
+    if (s.state === 'sail' && s.aware > 0.01) {
+      ctx.strokeStyle = COL.lamp;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, (L + 7 * S), -Math.PI / 2, -Math.PI / 2 + s.aware * Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  function drawBeam() {
+    const L = lampPos();
+    const on = lampOn();
+    const reach = beamReach();
+    const flick = g.mode === 'play' && g.oil < 15 && !g.pumping ? (0.6 + Math.random() * 0.4) : 1;
+    if (on) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const gr = ctx.createRadialGradient(L.x, L.y, 4, L.x, L.y, reach);
+      gr.addColorStop(0, `rgba(255,214,130,${0.55 * flick})`);
+      gr.addColorStop(0.35, `rgba(255,200,110,${0.22 * flick})`);
+      gr.addColorStop(1, 'rgba(255,190,100,0)');
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.moveTo(L.x, L.y);
+      ctx.arc(L.x, L.y, reach, ang - BEAM_HALF, ang + BEAM_HALF);
+      ctx.closePath();
+      ctx.fill();
+      // faint back-glow of the lens
+      const bg = ctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, 60 * S);
+      bg.addColorStop(0, `rgba(255,210,120,${0.35 * flick})`);
+      bg.addColorStop(1, 'rgba(255,210,120,0)');
+      ctx.fillStyle = bg;
+      ctx.fillRect(L.x - 60 * S, L.y - 60 * S, 120 * S, 120 * S);
+      ctx.restore();
+    }
+  }
+
+  function drawLand() {
+    ctx.fillStyle = COL.land;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    coast.forEach((c, i) => {
+      let y = c * H;
+      const x = i / (coast.length - 1) * W;
+      // promontory under the lighthouse
+      const dxn = Math.abs(i / (coast.length - 1) - 0.5);
+      if (dxn < 0.07) y -= (0.07 - dxn) * H * 0.35;
+      ctx.lineTo(x, y);
+    });
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fill();
+    // surf along the shore
+    ctx.strokeStyle = 'rgba(214,228,234,0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // tower: classic red and white bands
+    const Lp = lampPos();
+    const base = H * 0.925, top = Lp.y + 6 * S;
+    const bw = 9 * S, tw = 6 * S;
+    const bands = 5;
+    for (let i = 0; i < bands; i++) {
+      const y0 = base - (base - top) * i / bands, y1 = base - (base - top) * (i + 1) / bands;
+      const w0 = bw - (bw - tw) * i / bands, w1 = bw - (bw - tw) * (i + 1) / bands;
+      ctx.fillStyle = i % 2 ? '#e6e1d6' : '#a8392f';
+      ctx.beginPath();
+      ctx.moveTo(Lp.x - w0, y0); ctx.lineTo(Lp.x + w0, y0);
+      ctx.lineTo(Lp.x + w1, y1); ctx.lineTo(Lp.x - w1, y1);
+      ctx.closePath(); ctx.fill();
+    }
+    // lantern room
+    ctx.fillStyle = lampOn() ? COL.lamp : '#3b3a33';
+    ctx.fillRect(Lp.x - 5 * S, Lp.y - 4 * S, 10 * S, 10 * S);
+    ctx.fillStyle = '#1b1b1b';
+    ctx.beginPath();
+    ctx.moveTo(Lp.x - 7 * S, Lp.y - 4 * S); ctx.lineTo(Lp.x + 7 * S, Lp.y - 4 * S); ctx.lineTo(Lp.x, Lp.y - 11 * S);
+    ctx.closePath(); ctx.fill();
+  }
+
+  function drawFog() {
+    const f = fogLevel();
+    if (f <= 0) return;
+    for (const p of fogs) {
+      const cx = p.x * W, cy = p.y * H, r = p.r * Math.max(W, H);
+      const gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      gr.addColorStop(0, `rgba(150,172,186,${0.22 * f})`);
+      gr.addColorStop(1, 'rgba(150,172,186,0)');
+      ctx.fillStyle = gr;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    }
+  }
+
+  function drawRain() {
+    if (!stormy() || reduceMotion) return;
+    ctx.strokeStyle = 'rgba(190,210,225,0.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const r of rain) {
+      const x = r.x * W, y = r.y * H;
+      ctx.moveTo(x, y); ctx.lineTo(x - r.l * 0.3 * S, y + r.l * S);
+    }
+    ctx.stroke();
+  }
+
+  function render() {
+    drawSea();
+    for (const r of rocks) drawRock(r, false);
+    for (const s of g.ships) drawShip(s, false);
+    drawBeam();
+    // lit pass: things inside the cone get drawn again in lamp colors
+    for (const r of rocks) if (inBeam(r.x * W, r.y * H)) drawRock(r, true);
+    for (const s of g.ships) { const p = shipPx(s); if (inBeam(p.x, p.y)) drawShip(s, true); }
+    drawFog();
+    drawRain();
+    drawLand();
+
+    for (const pa of g.parts) {
+      ctx.globalAlpha = Math.max(0, pa.life / pa.max);
+      ctx.fillStyle = pa.color;
+      ctx.fillRect(pa.x - 1.5, pa.y - 1.5, 3, 3);
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'center';
+    ctx.font = `600 ${Math.round(12 * S)}px "IBM Plex Mono", ui-monospace, monospace`;
+    for (const t of g.texts) {
+      ctx.globalAlpha = Math.min(1, t.life);
+      ctx.fillStyle = t.color;
+      ctx.fillText(t.text, t.x, t.y);
+    }
+    ctx.globalAlpha = 1;
+
+    if (g.mode === 'play' && g.oil <= 0 && !g.pumping) {
+      ctx.fillStyle = COL.port;
+      ctx.font = `600 ${Math.round(14 * S)}px "IBM Plex Mono", ui-monospace, monospace`;
+      ctx.fillText('Sem óleo: bombeia!', W / 2, H * 0.8);
+    }
+  }
+
+  // ---------- HUD ----------
+  const hNight = $('hNight'), hSaved = $('hSaved'), hOil = $('hOil'), hBest = $('hBest');
+  const wreckDots = [...$('hWrecks').children];
+  let last = {};
+  function hud() {
+    const v = { n: g.night, s: g.saved, w: g.wrecks, o: Math.round(g.oil), b: best, p: g.pumping };
+    if (v.n !== last.n) hNight.textContent = v.n;
+    if (v.s !== last.s) hSaved.textContent = v.s;
+    if (v.b !== last.b) hBest.textContent = v.b;
+    if (v.w !== last.w) wreckDots.forEach((d, i) => d.classList.toggle('on', i < v.w));
+    if (v.o !== last.o) { hOil.style.width = v.o + '%'; hOil.classList.toggle('low', v.o < 20); }
+    if (v.p !== last.p) pumpBtn.classList.toggle('active', v.p);
+    last = v;
+  }
+
+  // ---------- input ----------
+  function aimAt(e) {
+    const r = cv.getBoundingClientRect();
+    const L = lampPos();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    aimAng = Math.atan2(Math.min(y - L.y, -1), x - L.x);
+  }
+  cv.tabIndex = 0;
+  cv.addEventListener('pointermove', e => { if (g.mode === 'play') aimAt(e); });
+  cv.addEventListener('pointerdown', e => { if (g.mode === 'play') { aimAt(e); cv.setPointerCapture?.(e.pointerId); } });
+
+  let pumpHeld = false;
+  const pumpOn = e => { e.preventDefault(); pumpHeld = true; };
+  const pumpOff = () => { pumpHeld = false; };
+  pumpBtn.addEventListener('pointerdown', pumpOn);
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => pumpBtn.addEventListener(ev, pumpOff));
+  pumpBtn.addEventListener('keydown', e => { if (e.key === 'Enter') pumpHeld = true; });
+  pumpBtn.addEventListener('keyup', e => { if (e.key === 'Enter') pumpHeld = false; });
+  pumpBtn.addEventListener('contextmenu', e => e.preventDefault());
+
+  window.addEventListener('keydown', e => {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (['ArrowLeft', 'ArrowRight', ' '].includes(k) && g.mode === 'play') e.preventDefault();
+    keys[k] = true;
+  });
+  window.addEventListener('keyup', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; keys[k] = false; });
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; pumpHeld = false; });
+
+  // ---------- loop ----------
+  let prev = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - prev) / 1000);
+    prev = now;
+    update(dt);
+    render();
+    hud();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
