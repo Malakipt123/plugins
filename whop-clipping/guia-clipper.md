@@ -107,3 +107,31 @@ Plano: **1 campanha principal** (a melhor pela fórmula) + **1 secundária de ga
 - [Forkoff — Custos para marcas 2026](https://forkoff.xyz/blog/clipping/whop-content-rewards-brand-cost-2026)
 - [OpenClip — Alternativas ao CapCut](https://openclip.app/alternatives/capcut-alternatives-for-shorts.md)
 - [OpenClip — Alternativas ao 2short.ai](https://openclip.app/alternatives/2short-alternatives)
+
+---
+
+## 7. Script: encontrar os melhores momentos (`melhores_momentos.py`)
+
+Instalar uma vez (grátis):
+```bash
+# ffmpeg: https://ffmpeg.org/download.html (Windows: winget install ffmpeg)
+pip install faster-whisper yt-dlp
+```
+
+Usar:
+```bash
+# Só listar os melhores momentos (com tempos e texto)
+python melhores_momentos.py "https://www.youtube.com/watch?v=..."
+
+# Exportar já os clips em 9:16 com legendas
+python melhores_momentos.py stream.mp4 --top 10 --cortar --vertical --legendas
+
+# Dar palavras do nicho para pesarem mais
+python melhores_momentos.py stream.mp4 --palavras "warhammer,space marine,heresia" --idioma pt
+```
+
+Gera na pasta `momentos/`: `momentos.md` (relatório), `momentos.json`, `transcricao.txt`, um `.srt` por clip e, com `--cortar`, um `.mp4` por clip.
+
+Como pontua cada janela de 15–45 s: gancho na primeira frase (palavras fortes, pergunta, número, frase curta), densidade de palavras-gancho, ritmo de fala, volume/gritos acima da média, termina numa frase completa e duração de 20–35 s.
+
+Dicas: `--modelo tiny` é muito rápido para testar; `--modelo medium` transcreve melhor em português. O corte 9:16 é ao centro — se a ação estiver de lado, ajusta no CapCut.
