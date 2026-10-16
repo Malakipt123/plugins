@@ -91,13 +91,15 @@ def volume_por_segundo(wav: Path) -> list[float]:
     return niveis
 
 
-def transcrever(wav: Path, modelo: str, idioma: str | None):
+def transcrever(wav: Path, modelo: str, idioma: str | None, gpu: bool = False):
     try:
         from faster_whisper import WhisperModel
     except ImportError:
         sys.exit("Falta o faster-whisper: pip install faster-whisper")
     print(f"[2/4] A transcrever com o modelo '{modelo}' (pode demorar) ...")
-    m = WhisperModel(modelo, device="auto", compute_type="int8")
+    # CPU por defeito: no Windows a GPU precisa de CUDA/cuDNN instalados à parte.
+    m = WhisperModel(modelo, device="cuda" if gpu else "cpu",
+                     compute_type="float16" if gpu else "int8")
     segs, info = m.transcribe(str(wav), language=idioma, vad_filter=True,
                               word_timestamps=True)
     resultado = []
@@ -242,6 +244,7 @@ def main():
     ap.add_argument("--cortar", action="store_true", help="Exporta cada momento em MP4")
     ap.add_argument("--vertical", action="store_true", help="Corta ao centro para 9:16")
     ap.add_argument("--legendas", action="store_true", help="Queima legendas no vídeo")
+    ap.add_argument("--gpu", action="store_true", help="Usa a placa NVIDIA (precisa de CUDA)")
     a = ap.parse_args()
 
     pasta = Path(a.saida)
@@ -250,7 +253,7 @@ def main():
 
     video = obter_video(a.fonte, pasta)
     wav = extrair_audio(video, pasta)
-    segs, idioma = transcrever(wav, a.modelo, a.idioma)
+    segs, idioma = transcrever(wav, a.modelo, a.idioma, a.gpu)
     if not segs:
         sys.exit("Não foi encontrada fala no vídeo.")
 
