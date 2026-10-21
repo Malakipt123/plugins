@@ -135,3 +135,27 @@ Gera na pasta `momentos/`: `momentos.md` (relatório), `momentos.json`, `transcr
 Como pontua cada janela de 15–45 s: gancho na primeira frase (palavras fortes, pergunta, número, frase curta), densidade de palavras-gancho, ritmo de fala, volume/gritos acima da média, termina numa frase completa e duração de 20–35 s.
 
 Dicas: `--modelo tiny` é muito rápido para testar; `--modelo medium` transcreve melhor em português. O corte 9:16 é ao centro — se a ação estiver de lado, ajusta no CapCut.
+
+---
+
+## 8. Análise semanal (campanhas + ganhos)
+
+### Como abrir o Claude com acesso ao Whop
+Uma conversa do Claude Code **na cloud** (web/telemóvel) **não vê o teu Chrome**. Para o Claude ler o Whop com o teu login, usa uma destas opções:
+- o **painel Claude no Chrome** (extensão Claude in Chrome) — o mais simples;
+- uma conversa aberta na **app Claude Desktop** no PC, com o Chrome ligado.
+
+### Prompt pronto a colar (painel Claude no Chrome)
+> Estou no Whop → Content Rewards. Percorre todas as campanhas ativas e faz uma tabela CSV com as colunas
+> `data,campanha,cpm,orcamento_total,orcamento_pago,clippers,nicho,material,plataformas,link`.
+> Depois abre as minhas submissões e ganhos e faz outra tabela CSV com
+> `data_publicacao,campanha,plataforma,link,views_48h,views_atuais,ganho_usd,estado`.
+
+Cola o resultado em `campanhas.csv` e `submissoes.csv` (nesta pasta) e corre:
+```bash
+python ranking.py               # destaca gaming por defeito
+python ranking.py --nicho warhammer
+```
+O script ordena por `(total − pago) ÷ clippers`, marca ⚠ campanhas com < 20% de orçamento ou de casino, e lista os teus clips por views com o total ganho.
+
+> Nota: no cartão do Whop, `$5K/$6K` costuma ser **pago / total** (a barra mostra o gasto). Confirma ao abrir a campanha.
