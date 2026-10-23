@@ -60,16 +60,23 @@ if "%FONTE%"=="" (
 )
 
 rem ---------- 5. Opcoes ----------
-echo.
+rem Valores por defeito; as ultimas respostas ficam em preferencias.bat
 set "TOP=8"
-set /p "TOP=Quantos momentos queres? [8]: "
-
 set "IDIOMA=en"
-set /p "IDIOMA=Idioma do video (en, pt... ou auto) [en]: "
+set "N=1"
+set "Q=2"
+set "CORTAR=S"
+set "L=1"
+set "C=4"
+if exist "%PASTA%preferencias.bat" call "%PASTA%preferencias.bat"
 
-echo Nicho: 1 = warhammer  2 = gaming  3 = os dois  vazio = nenhum
-set "N="
-set /p "N=Escolhe: "
+echo.
+echo (Enter = usar o valor entre [ ], que e a tua ultima resposta)
+set /p "TOP=Quantos momentos queres? [%TOP%]: "
+set /p "IDIOMA=Idioma do video (en, pt... ou auto) [%IDIOMA%]: "
+
+echo Nicho: 1 = warhammer  2 = gaming  3 = os dois  0 = nenhum
+set /p "N=Escolhe [%N%]: "
 set "NICHO="
 if "%N%"=="1" set "NICHO=warhammer"
 if "%N%"=="2" set "NICHO=gaming"
@@ -78,34 +85,39 @@ if "%N%"=="3" set "NICHO=warhammer,gaming"
 set "PALAVRAS="
 set /p "PALAVRAS=Palavras extra separadas por virgulas (opcional): "
 
-set "MODELO=small"
 echo Qualidade da transcricao: 1 = rapida (tiny)  2 = normal (small)  3 = melhor (medium)
-set "Q=2"
-set /p "Q=Escolhe [2]: "
+set /p "Q=Escolhe [%Q%]: "
+set "MODELO=small"
 if "%Q%"=="1" set "MODELO=tiny"
 if "%Q%"=="3" set "MODELO=medium"
 
-set "CORTAR=S"
-set /p "CORTAR=Exportar os clips em 9:16 com legendas? (S/N) [S]: "
+set /p "CORTAR=Exportar os clips em 9:16 com legendas? (S/N) [%CORTAR%]: "
+if /i not "%CORTAR%"=="S" goto :guardar
 
+echo Formato: 1 = jogo em cima + camara em baixo   2 = corte simples ao centro
+set /p "L=Escolhe [%L%]: "
+if "%L%"=="2" goto :guardar
+echo Onde esta a camara no video original?
+echo   1 = em cima a esquerda   2 = em cima a direita
+echo   3 = em baixo a esquerda  4 = em baixo a direita
+set /p "C=Escolhe [%C%]: "
+
+:guardar
 set "LAYOUT=empilhado"
-set "CAM=id"
-if /i "%CORTAR%"=="S" (
-    echo Formato: 1 = jogo em cima + camara em baixo   2 = corte simples ao centro
-    set "L=1"
-    set /p "L=Escolhe [1]: "
-)
 if "%L%"=="2" set "LAYOUT=centro"
-if /i "%CORTAR%"=="S" if "%LAYOUT%"=="empilhado" (
-    echo Onde esta a camara no video original?
-    echo   1 = em cima a esquerda   2 = em cima a direita
-    echo   3 = em baixo a esquerda  4 = em baixo a direita
-    set "C=4"
-    set /p "C=Escolhe [4]: "
-)
+set "CAM=id"
 if "%C%"=="1" set "CAM=se"
 if "%C%"=="2" set "CAM=sd"
 if "%C%"=="3" set "CAM=ie"
+(
+    echo set "TOP=%TOP%"
+    echo set "IDIOMA=%IDIOMA%"
+    echo set "N=%N%"
+    echo set "Q=%Q%"
+    echo set "CORTAR=%CORTAR%"
+    echo set "L=%L%"
+    echo set "C=%C%"
+) > "%PASTA%preferencias.bat"
 
 for /f %%d in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH-mm"') do set "DATA=%%d"
 set "SAIDA=%PASTA%momentos\%DATA%"

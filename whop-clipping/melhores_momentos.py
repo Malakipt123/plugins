@@ -207,6 +207,33 @@ def pontuar(segs, niveis, ganchos, dmin, dmax):
     return lista
 
 
+TAGS_NICHO = {"warhammer": ["#warhammer40k", "#warhammer"], "gaming": ["#gaming", "#gamer"]}
+TAGS_BASE = ["#fyp", "#shorts"]
+
+
+def sugerir_titulo(texto: str, ganchos: list[str], limite=70) -> str:
+    """A frase mais forte do clip (mais palavras-gancho, pergunta ou exclamação)."""
+    frases = [f.strip() for f in re.split(r"(?<=[.!?…])\s+", texto) if len(f.split()) >= 3]
+    if not frases:
+        frases = [texto.strip()]
+    melhor = max(frases, key=lambda f: (contar_ganchos(f, ganchos)
+                                        + ("?" in f) + ("!" in f), -len(f)))
+    melhor = melhor.strip(" .…")
+    if len(melhor) > limite:
+        melhor = melhor[:limite].rsplit(" ", 1)[0] + "…"
+    return melhor[:1].upper() + melhor[1:]
+
+
+def sugerir_hashtags(texto: str, nichos: list[str], extra: list[str], maximo=6) -> list[str]:
+    termos = [t for n in nichos for t in NICHOS.get(n, [])] + extra
+    do_clip = [ "#" + re.sub(r"\W", "", t.lower())
+               for t in sorted(termos, key=len, reverse=True)  # termos longos primeiro
+               if contar_ganchos(texto, [t])]
+    do_nicho = [t for n in nichos for t in TAGS_NICHO.get(n, [])]
+    unicas = list(dict.fromkeys(t for t in do_clip[:2] + do_nicho if len(t) > 3))
+    return unicas[:maximo - len(TAGS_BASE)] + TAGS_BASE
+
+
 def escolher(lista, top, folga=5.0):
     escolhidos = []
     for c in sorted(lista, key=lambda c: c["pontuacao"], reverse=True):
@@ -313,8 +340,10 @@ def main():
 
     pasta = Path(a.saida)
     pasta.mkdir(parents=True, exist_ok=True)
-    ganchos = PALAVRAS_GANCHO + [p.strip().lower() for p in a.palavras.split(",") if p.strip()]
-    for nicho in filter(None, (n.strip().lower() for n in a.nicho.split(","))):
+    extra = [p.strip().lower() for p in a.palavras.split(",") if p.strip()]
+    ganchos = PALAVRAS_GANCHO + extra
+    nichos = [n.strip().lower() for n in a.nicho.split(",") if n.strip()]
+    for nicho in nichos:
         if nicho not in NICHOS:
             sys.exit(f"Nicho desconhecido: {nicho}. Opções: {', '.join(NICHOS)}")
         ganchos += NICHOS[nicho]
@@ -337,6 +366,8 @@ def main():
     ranking = sorted(escolhidos, key=lambda c: c["pontuacao"], reverse=True)
     for n, c in enumerate(escolhidos, 1):
         c["posicao"] = ranking.index(c) + 1
+        c["titulo"] = sugerir_titulo(c["texto"], ganchos)
+        c["hashtags"] = sugerir_hashtags(c["texto"], nichos, extra)
         srt = pasta / f"clip_{n:02d}.srt"
         escrever_srt(segs, c, srt)
         if a.cortar:
@@ -347,6 +378,8 @@ def main():
         rel += [f"\n## Clip {n:02d} — {fmt(c['ini'])} → {fmt(c['fim'])} "
                 f"({c['duracao']} s) · #{c['posicao']} · pontuação {c['pontuacao']}\n",
                 f"**Gancho:** {c['gancho']}\n",
+                f"**Título sugerido:** {c['titulo']}  \n"
+                f"**Hashtags:** {' '.join(c['hashtags'])}\n",
                 f"> {c['texto']}\n"]
 
     (pasta / "momentos.md").write_text("\n".join(rel), encoding="utf-8")

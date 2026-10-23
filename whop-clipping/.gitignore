@@ -1,0 +1,4 @@
+.venv/
+momentos/
+preferencias.bat
+__pycache__/

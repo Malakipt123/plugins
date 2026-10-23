@@ -141,6 +141,10 @@ Como pontua cada janela de 15–45 s: gancho na primeira frase (palavras fortes,
 
 **Formato 9:16 para gaming (padrão no `.bat`):** `--layout empilhado` põe o jogo em cima (1080×1312) e a câmara do streamer em baixo (1080×608), com as legendas entre os dois. Diz onde está a câmara no vídeo original com `--camera se|sd|ie|id` (superior/inferior, esquerda/direita) e o tamanho com `--tam-camera 0.3` (30% da largura e da altura). Se a câmara sair cortada, ajusta esse valor (0.25 ou 0.35). Sem câmara, usa `--layout centro`.
 
+**Título e hashtags:** cada clip no `momentos.md` traz um **título sugerido** (a frase mais forte do clip) e **hashtags** (termos do nicho que aparecem no clip + `#warhammer40k`/`#gaming` + `#fyp #shorts`). Revê antes de publicar e confirma as hashtags obrigatórias da campanha.
+
+**O `.bat` lembra-se das tuas respostas** (nicho, idioma, formato, canto da câmara) em `preferencias.bat` — na próxima vez basta carregar Enter.
+
 Dicas: `--modelo tiny` é muito rápido para testar; `--modelo medium` transcreve melhor.
 
 ---
