@@ -3,6 +3,7 @@
 
     python ranking.py                 # usa campanhas.csv e submissoes.csv
     python ranking.py --nicho gaming  # dá prioridade a um nicho
+    python ranking.py --plataformas tiktok,youtube  # esconde as que não aceitam nenhuma
 
 Fórmula: (orçamento total - pago) / clippers = dinheiro que "sobra" por clipper.
 """
@@ -30,9 +31,20 @@ def ler(nome):
         return list(csv.DictReader(f))
 
 
-def ranking_campanhas(nicho):
+def aceita(campanha, plataformas):
+    if not plataformas or not campanha["plataformas"].strip():
+        return True  # sem filtro ou sem info: não esconder
+    aceites = campanha["plataformas"].lower()
+    return any(p in aceites for p in plataformas)
+
+
+def ranking_campanhas(nicho, plataformas):
     linhas = []
+    escondidas = 0
     for c in ler("campanhas.csv"):
+        if not aceita(c, plataformas):
+            escondidas += 1
+            continue
         total, pago, clippers = numero(c["orcamento_total"]), numero(c["orcamento_pago"]), numero(c["clippers"])
         if not total or pago is None or not clippers:
             continue
@@ -51,6 +63,8 @@ def ranking_campanhas(nicho):
     for i, (bonus, por_clipper, restante, c, avisos) in enumerate(linhas, 1):
         extra = ("  ★ " + nicho if bonus else "") + ("  ⚠ " + ", ".join(avisos) if avisos else "")
         print(f"{i:>2}  {por_clipper:>9.0f}  {restante:>9.0f}  {c['cpm'] or '?':>5}  {c['campanha']}{extra}")
+    if escondidas:
+        print(f"({escondidas} escondidas por não aceitarem {', '.join(plataformas)})")
 
 
 def resumo_submissoes():
@@ -70,6 +84,9 @@ def resumo_submissoes():
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--nicho", default="gaming", help="nicho a destacar (default: gaming)")
+    ap.add_argument("--plataformas", default="",
+                    help="onde publicas, separado por vírgulas (ex.: tiktok,instagram,youtube)")
     args = ap.parse_args()
-    ranking_campanhas(args.nicho)
+    plataformas = [p.strip().lower() for p in args.plataformas.split(",") if p.strip()]
+    ranking_campanhas(args.nicho, plataformas)
     resumo_submissoes()

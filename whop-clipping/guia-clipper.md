@@ -154,8 +154,9 @@ Uma conversa do Claude Code **na cloud** (web/telemóvel) **não vê o teu Chrom
 Cola o resultado em `campanhas.csv` e `submissoes.csv` (nesta pasta) e corre:
 ```bash
 python ranking.py               # destaca gaming por defeito
-python ranking.py --nicho warhammer
+python ranking.py --nicho warhammer --plataformas tiktok,youtube
 ```
-O script ordena por `(total − pago) ÷ clippers`, marca ⚠ campanhas com < 20% de orçamento ou de casino, e lista os teus clips por views com o total ganho.
+No Windows basta dar duplo clique em **`ranking.bat`** — pergunta o nicho e as plataformas.
+O script ordena por `(total − pago) ÷ clippers`, marca ⚠ campanhas com < 20% de orçamento ou de casino, esconde as que não aceitam as tuas plataformas, e lista os teus clips por views com o total ganho.
 
 > Nota: no cartão do Whop, `$5K/$6K` costuma ser **pago / total** (a barra mostra o gasto). Confirma ao abrir a campanha.
