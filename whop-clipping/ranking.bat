@@ -24,8 +24,11 @@ set /p "NICHO=Nicho a destacar [gaming]: "
 set "PLAT="
 set /p "PLAT=Onde publicas? (ex.: tiktok,instagram,youtube - vazio = todas): "
 
+set "VIEWS="
+set /p "VIEWS=Views esperadas por clip (vazio = a tua media): "
+
 echo.
-python "%PASTA%ranking.py" --nicho "%NICHO%" --plataformas "%PLAT%"
+python "%PASTA%ranking.py" --nicho "%NICHO%" --plataformas "%PLAT%" --views "%VIEWS%"
 if errorlevel 1 (
     echo.
     echo [ERRO] Algo correu mal. Copia a mensagem acima e manda-ma.

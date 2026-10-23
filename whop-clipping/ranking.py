@@ -4,6 +4,7 @@
     python ranking.py                 # usa campanhas.csv e submissoes.csv
     python ranking.py --nicho gaming  # dá prioridade a um nicho
     python ranking.py --plataformas tiktok,youtube  # esconde as que não aceitam nenhuma
+    python ranking.py --views 15000   # estima ganho por clip com 15K views
 
 Fórmula: (orçamento total - pago) / clippers = dinheiro que "sobra" por clipper.
 Cada execução junta as linhas de campanhas.csv a historico.csv (por data); com
@@ -105,7 +106,21 @@ def previsao(campanha, restante, historico):
     return f"~{restante / gasto_dia:.0f} dias"
 
 
-def ranking_campanhas(nicho, plataformas):
+def views_medias():
+    """Média de views dos teus clips em submissoes.csv (None se não houver)."""
+    views = [numero(s["views_atuais"]) for s in ler("submissoes.csv")]
+    views = [v for v in views if v]
+    return sum(views) / len(views) if views else None
+
+
+def ganho_estimado(campanha, restante, views):
+    cpm = numero(campanha["cpm"])
+    if not views or not cpm:
+        return None
+    return min(views * cpm / 1000, restante)
+
+
+def ranking_campanhas(nicho, plataformas, views):
     linhas = []
     escondidas = 0
     campanhas = ler("campanhas.csv")
@@ -128,11 +143,15 @@ def ranking_campanhas(nicho, plataformas):
     linhas.sort(key=lambda l: (not l[4], l[0], l[1]), reverse=True)
 
     print("\n== Campanhas (restante ÷ clippers) ==")
-    print(f"{'#':>2}  {'$/clipper':>9}  {'restante':>9}  {'CPM':>5}  {'esgota em':>9}  campanha")
+    if views:
+        print(f"(ganho/clip estimado com {views:,.0f} views por clip)".replace(",", "."))
+    print(f"{'#':>2}  {'$/clipper':>9}  {'restante':>9}  {'CPM':>5}  {'ganho/clip':>10}  {'esgota em':>9}  campanha")
     for i, (bonus, por_clipper, restante, c, avisos, esgota) in enumerate(linhas, 1):
         extra = ("  ★ " + nicho if bonus else "") + ("  ⚠ " + ", ".join(avisos) if avisos else "")
-        print(f"{i:>2}  {por_clipper:>9.0f}  {restante:>9.0f}  {c['cpm'] or '?':>5}  {esgota or '-':>9}  "
-              f"{c['campanha']}{extra}")
+        ganho = ganho_estimado(c, restante, views)
+        ganho_txt = f"${ganho:.2f}" if ganho is not None else "-"
+        print(f"{i:>2}  {por_clipper:>9.0f}  {restante:>9.0f}  {c['cpm'] or '?':>5}  {ganho_txt:>10}  "
+              f"{esgota or '-':>9}  {c['campanha']}{extra}")
     if escondidas:
         print(f"({escondidas} escondidas por não aceitarem {', '.join(plataformas)})")
 
@@ -156,7 +175,9 @@ if __name__ == "__main__":
     ap.add_argument("--nicho", default="gaming", help="nicho a destacar (default: gaming)")
     ap.add_argument("--plataformas", default="",
                     help="onde publicas, separado por vírgulas (ex.: tiktok,instagram,youtube)")
+    ap.add_argument("--views", default="",
+                    help="views esperadas por clip (por defeito: a tua média em submissoes.csv)")
     args = ap.parse_args()
     plataformas = [p.strip().lower() for p in args.plataformas.split(",") if p.strip()]
-    ranking_campanhas(args.nicho, plataformas)
+    ranking_campanhas(args.nicho, plataformas, numero(args.views) or views_medias())
     resumo_submissoes()

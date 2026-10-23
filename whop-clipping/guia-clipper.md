@@ -158,7 +158,36 @@ python ranking.py --nicho warhammer --plataformas tiktok,youtube
 ```
 No Windows basta dar duplo clique em **`ranking.bat`** — pergunta o nicho e as plataformas e, no fim, abre os dois CSV no Bloco de Notas.
 
+**Ganho por clip:** a coluna `ganho/clip` = views × CPM ÷ 1000, usando a tua média de views em `submissoes.csv` (ou `--views 15000`). Serve para comparar campanhas, não é garantia — confirma mínimo de views e máximo por vídeo de cada campanha.
+
 **Histórico:** cada vez que corres, as campanhas são guardadas em `historico.csv` pela `data`. Atualiza a coluna `data` sempre que colares dados novos — a partir da segunda semana aparece a coluna **esgota em** (dias até o orçamento acabar, ao ritmo atual).
 O script ordena por `(total − pago) ÷ clippers`, marca ⚠ campanhas com < 20% de orçamento ou de casino, esconde as que não aceitam as tuas plataformas, e lista os teus clips por views com o total ganho.
 
 > Nota: no cartão do Whop, `$5K/$6K` costuma ser **pago / total** (a barra mostra o gasto). Confirma ao abrir a campanha.
+
+---
+
+## 9. Checklist diária (imprime ou guarda no telemóvel)
+
+**Manhã — escolher (10 min)**
+- [ ] Abrir Whop → Content Rewards; colar dados novos em `campanhas.csv` (com a `data` de hoje)
+- [ ] Correr `ranking.bat` → escolher 1 campanha principal + 1 de gaming
+- [ ] Confirmar regras: plataformas, duração, legendas, hashtags, mínimo de views
+
+**Produzir (1–2 h)**
+- [ ] Descarregar material → `melhores_momentos.bat` (palavras do nicho, ex.: `warhammer`)
+- [ ] Escolher 3–5 momentos; gancho forte nos primeiros 2–3 s
+- [ ] Cortar 9:16, legendas grandes, sem marcas de água
+
+**Publicar e submeter**
+- [ ] Publicar 1–3 clips por conta, espaçados
+- [ ] **Submeter o link no Whop logo a seguir** (orçamento é por ordem de chegada)
+- [ ] Juntar uma linha a `submissoes.csv` por clip (`views_48h` vazio por agora)
+
+**48 h depois**
+- [ ] Preencher `views_48h`, `views_atuais`, `ganho_usd` e `estado`
+- [ ] Ver o que funcionou (gancho, duração, hora) e repetir
+
+**Semanal (domingo)**
+- [ ] `ranking.bat` → ver coluna **esgota em**; largar campanhas com < 7 dias ou ⚠
+- [ ] Ver o total ganho e o melhor clip da semana
