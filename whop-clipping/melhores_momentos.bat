@@ -43,6 +43,14 @@ if not exist "%PASTA%.venv\Scripts\python.exe" (
     echo.
 )
 set "PY=%PASTA%.venv\Scripts\python.exe"
+
+rem ---------- Atalhos no Ambiente de Trabalho (so na primeira vez) ----------
+if not exist "%PASTA%.atalhos" (
+    powershell -NoProfile -Command "$d=[Environment]::GetFolderPath('Desktop'); $w=New-Object -ComObject WScript.Shell; foreach($n in @('melhores_momentos','ranking')){ $l=$w.CreateShortcut((Join-Path $d ('Clipping - '+$n+'.lnk'))); $l.TargetPath=(Join-Path '%PASTA%' ($n+'.bat')); $l.WorkingDirectory='%PASTA%'; $l.Save() }" >nul 2>&1 && (
+        echo Criei 2 atalhos no Ambiente de Trabalho: "Clipping - melhores_momentos" e "Clipping - ranking".
+        echo.> "%PASTA%.atalhos"
+    )
+)
 rem Mantem o yt-dlp atualizado (YouTube muda com frequencia)
 "%PY%" -m pip install -q --upgrade yt-dlp >nul 2>&1
 
@@ -61,7 +69,7 @@ if "%FONTE%"=="" (
 
 rem ---------- 5. Opcoes ----------
 rem Valores por defeito; as ultimas respostas ficam em preferencias.bat
-set "TOP=8"
+set "TOP=10"
 set "IDIOMA=en"
 set "N=1"
 set "Q=2"
@@ -84,6 +92,12 @@ if "%N%"=="3" set "NICHO=warhammer,gaming"
 
 set "PALAVRAS="
 set /p "PALAVRAS=Palavras extra separadas por virgulas (opcional): "
+
+echo Stream longo? Podes usar so um pedaco (ex.: de 1:20:00 ate 1:50:00). Enter = video todo.
+set "DE="
+set /p "DE=Comecar em: "
+set "ATE="
+set /p "ATE=Acabar em: "
 
 echo Qualidade da transcricao: 1 = rapida (tiny)  2 = normal (small)  3 = melhor (medium)
 set /p "Q=Escolhe [%Q%]: "
@@ -126,6 +140,8 @@ set "ARGS=--top %TOP% --modelo %MODELO% --saida "%SAIDA%""
 if not "%IDIOMA%"=="" set "ARGS=%ARGS% --idioma %IDIOMA%"
 if /i "%CORTAR%"=="S" set "ARGS=%ARGS% --cortar --vertical --legendas --layout %LAYOUT% --camera %CAM%"
 if not "%NICHO%"=="" set "ARGS=%ARGS% --nicho "%NICHO%""
+if not "%DE%"=="" set "ARGS=%ARGS% --de %DE%"
+if not "%ATE%"=="" set "ARGS=%ARGS% --ate %ATE%"
 
 rem ---------- 6. Correr ----------
 echo.

@@ -137,6 +137,12 @@ Gera na pasta `momentos/`: `momentos.md` (relatório), `momentos.json`, `transcr
 
 Como pontua cada janela de 15–45 s: gancho na primeira frase (palavras fortes, pergunta, número, frase curta), densidade de palavras-gancho, ritmo de fala, volume/gritos acima da média, termina numa frase completa e duração de 20–35 s.
 
+**Fontes suportadas:** ficheiros no PC e links de **YouTube** (vídeos e Shorts), **Twitch** (VODs e clips) e **Kick** (VODs e clips). Usa VODs/gravações, não lives a decorrer.
+
+**Streams longos:** em vez de descarregar 6 horas, usa só um pedaço com `--de 1:20:00 --ate 1:50:00` (o `.bat` pergunta). Os tempos no `momentos.md` passam a contar a partir do início do pedaço.
+
+**Atalhos:** na primeira vez, o `.bat` cria no Ambiente de Trabalho os atalhos **Clipping - melhores_momentos** e **Clipping - ranking**.
+
 **Idioma:** o padrão é inglês (`--idioma en`), que é mais rápido e mais certo do que detetar sozinho. Para vídeos em português usa `--idioma pt`; para detetar usa `--idioma auto`.
 
 **Formato 9:16 para gaming (padrão no `.bat`):** `--layout empilhado` põe o jogo em cima (1080×1312) e a câmara do streamer em baixo (1080×608), com as legendas entre os dois. Diz onde está a câmara no vídeo original com `--camera se|sd|ie|id` (superior/inferior, esquerda/direita) e o tamanho com `--tam-camera 0.3` (30% da largura e da altura). Se a câmara sair cortada, ajusta esse valor (0.25 ou 0.35). Sem câmara, usa `--layout centro`.
@@ -189,11 +195,13 @@ O script ordena por `(total − pago) ÷ clippers`, marca ⚠ campanhas com < 20
 
 **Produzir (1–2 h)**
 - [ ] Descarregar material → `melhores_momentos.bat` (nicho 1 = warhammer, 2 = gaming, 3 = os dois)
-- [ ] Escolher 3–5 momentos; gancho forte nos primeiros 2–3 s
+- [ ] O script dá 10 momentos → escolher os 3 melhores do dia (os outros ficam para amanhã); gancho forte nos primeiros 2–3 s
 - [ ] Cortar 9:16, legendas grandes, sem marcas de água
 
 **Publicar e submeter**
-- [ ] Publicar 1–3 clips por conta, espaçados
+- [ ] **Volume para crescer:** 3 clips por dia, cada um publicado no **TikTok, Reels e Shorts** (9 posts/dia), espaçados ~3 h
+- [ ] Mesmo momento, gancho diferente em cada plataforma (1.ª frase/legenda de capa diferente)
+- [ ] Nunca submeter o mesmo clip duas vezes na mesma campanha (contas diferentes contam como duplicado)
 - [ ] **Submeter o link no Whop logo a seguir** (orçamento é por ordem de chegada)
 - [ ] Juntar uma linha a `submissoes.csv` por clip (`views_48h` vazio por agora)
 

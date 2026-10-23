@@ -10,6 +10,7 @@ Exemplos:
     python melhores_momentos.py stream.mp4 --top 10 --cortar --vertical --legendas
     python melhores_momentos.py stream.mp4 --palavras "warhammer,space marine,heresia"
     python melhores_momentos.py stream.mp4 --nicho warhammer
+    python melhores_momentos.py "https://twitch.tv/videos/..." --de 1:20:00 --ate 1:50:00
     python melhores_momentos.py stream.mp4 --cortar --vertical --layout empilhado --camera id
 
 Requisitos (grátis): ffmpeg no PATH e `pip install faster-whisper yt-dlp`.
@@ -69,25 +70,59 @@ def correr(cmd, **kw):
     return subprocess.run(cmd, check=True, text=True, capture_output=True, **kw)
 
 
-def obter_video(fonte: str, pasta: Path) -> Path:
+def segundos(valor: str | None) -> float | None:
+    """'1:23:45', '83:00' ou '4980' -> segundos."""
+    if not valor:
+        return None
+    try:
+        total = 0.0
+        for parte in valor.strip().split(":"):
+            total = total * 60 + float(parte)
+        return total
+    except ValueError:
+        sys.exit(f"Tempo inválido: {valor} (usa 1:23:45, 83:00 ou 4980)")
+
+
+def obter_video(fonte: str, pasta: Path, de: float | None = None, ate: float | None = None) -> Path:
+    """Ficheiro local ou link (YouTube, Twitch, Kick, ...); opcionalmente só o trecho de..ate."""
+    trecho = de is not None or ate is not None
     if Path(fonte).exists():
-        return Path(fonte).resolve()
+        video = Path(fonte).resolve()
+        if not trecho:
+            return video
+        print(f"[1/4] A extrair o trecho {fmt(de or 0)}–{fmt(ate) if ate else 'fim'} ...")
+        saida = pasta / "trecho.mp4"
+        cmd = ["ffmpeg", "-y", "-v", "error", "-ss", str(de or 0), "-i", str(video)]
+        if ate:
+            cmd += ["-t", str(ate - (de or 0))]
+        correr(cmd + ["-c", "copy", str(saida)])
+        return saida
     if not re.match(r"^https?://", fonte):
         sys.exit(f"Fonte não encontrada: {fonte}")
     try:
         import yt_dlp
+        from yt_dlp.utils import download_range_func
     except ImportError:
         sys.exit("Falta o yt-dlp: pip install yt-dlp")
     print(f"[1/4] A descarregar {fonte} ...")
     opcoes = {
         "outtmpl": str(pasta / "video.%(ext)s"),
-        "format": "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/b",
+        # Twitch/Kick dão streams HLS sem "ext=mp4"; o último "/b" apanha esses.
+        "format": "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/bv*[height<=1080]+ba/b[height<=1080]/b",
         "merge_output_format": "mp4",
         "quiet": True,
         "no_warnings": True,
+        "noplaylist": True,
     }
+    if trecho:
+        # Streams de horas: descarrega só o pedaço que interessa.
+        opcoes["download_ranges"] = download_range_func(None, [(de or 0, ate or float("inf"))])
+        opcoes["force_keyframes_at_cuts"] = True
     with yt_dlp.YoutubeDL(opcoes) as ydl:
         info = ydl.extract_info(fonte, download=True)
+        feitos = info.get("requested_downloads") or []
+        if feitos and feitos[0].get("filepath"):
+            return Path(feitos[0]["filepath"])
         return Path(ydl.prepare_filename(info)).with_suffix(".mp4")
 
 
@@ -325,6 +360,8 @@ def main():
                     help="Palavras extra do nicho, separadas por vírgulas")
     ap.add_argument("--nicho", default="",
                     help="Lista pronta de palavras: " + ", ".join(NICHOS) + " (pode juntar: warhammer,gaming)")
+    ap.add_argument("--de", default=None, help="Começar neste tempo (ex.: 1:20:00) — útil em streams longos")
+    ap.add_argument("--ate", default=None, help="Acabar neste tempo (ex.: 1:50:00)")
     ap.add_argument("--saida", default="momentos", help="Pasta de saída (padrão ./momentos)")
     ap.add_argument("--cortar", action="store_true", help="Exporta cada momento em MP4")
     ap.add_argument("--vertical", action="store_true", help="Exporta em 9:16")
@@ -348,7 +385,10 @@ def main():
             sys.exit(f"Nicho desconhecido: {nicho}. Opções: {', '.join(NICHOS)}")
         ganchos += NICHOS[nicho]
 
-    video = obter_video(a.fonte, pasta)
+    de, ate = segundos(a.de), segundos(a.ate)
+    if de is not None and ate is not None and ate <= de:
+        sys.exit("--ate tem de ser depois de --de")
+    video = obter_video(a.fonte, pasta, de, ate)
     wav = extrair_audio(video, pasta)
     idioma_pedido = None if a.idioma.lower() == "auto" else a.idioma
     segs, idioma = transcrever(wav, a.modelo, idioma_pedido, a.gpu)
@@ -363,6 +403,8 @@ def main():
     print("[4/4] A gravar resultados ...")
     rel = [f"# Melhores momentos — {video.name}\n",
            f"Idioma: {idioma} · {len(escolhidos)} momentos\n"]
+    if de:
+        rel.append(f"_Tempos contados a partir de {fmt(de)} do vídeo original._\n")
     ranking = sorted(escolhidos, key=lambda c: c["pontuacao"], reverse=True)
     for n, c in enumerate(escolhidos, 1):
         c["posicao"] = ranking.index(c) + 1
