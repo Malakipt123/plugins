@@ -125,7 +125,7 @@ set "SAIDA=%PASTA%momentos\%DATA%"
 set "ARGS=--top %TOP% --modelo %MODELO% --saida "%SAIDA%""
 if not "%IDIOMA%"=="" set "ARGS=%ARGS% --idioma %IDIOMA%"
 if /i "%CORTAR%"=="S" set "ARGS=%ARGS% --cortar --vertical --legendas --layout %LAYOUT% --camera %CAM%"
-if not "%NICHO%"=="" set "ARGS=%ARGS% --nicho %NICHO%"
+if not "%NICHO%"=="" set "ARGS=%ARGS% --nicho "%NICHO%""
 
 rem ---------- 6. Correr ----------
 echo.
