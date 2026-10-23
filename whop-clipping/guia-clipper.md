@@ -156,7 +156,9 @@ Cola o resultado em `campanhas.csv` e `submissoes.csv` (nesta pasta) e corre:
 python ranking.py               # destaca gaming por defeito
 python ranking.py --nicho warhammer --plataformas tiktok,youtube
 ```
-No Windows basta dar duplo clique em **`ranking.bat`** — pergunta o nicho e as plataformas.
+No Windows basta dar duplo clique em **`ranking.bat`** — pergunta o nicho e as plataformas e, no fim, abre os dois CSV no Bloco de Notas.
+
+**Histórico:** cada vez que corres, as campanhas são guardadas em `historico.csv` pela `data`. Atualiza a coluna `data` sempre que colares dados novos — a partir da segunda semana aparece a coluna **esgota em** (dias até o orçamento acabar, ao ritmo atual).
 O script ordena por `(total − pago) ÷ clippers`, marca ⚠ campanhas com < 20% de orçamento ou de casino, esconde as que não aceitam as tuas plataformas, e lista os teus clips por views com o total ganho.
 
 > Nota: no cartão do Whop, `$5K/$6K` costuma ser **pago / total** (a barra mostra o gasto). Confirma ao abrir a campanha.

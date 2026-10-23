@@ -31,6 +31,14 @@ if errorlevel 1 (
     echo [ERRO] Algo correu mal. Copia a mensagem acima e manda-ma.
 )
 
+echo.
+set "ABRIR=S"
+set /p "ABRIR=Abrir os CSV no Bloco de Notas para colar dados novos? (S/N) [S]: "
+if /i "%ABRIR%"=="S" (
+    start "" notepad "%PASTA%campanhas.csv"
+    start "" notepad "%PASTA%submissoes.csv"
+)
+
 :fim
 echo.
 pause
