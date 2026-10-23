@@ -28,7 +28,7 @@ set "VIEWS="
 set /p "VIEWS=Views esperadas por clip (vazio = a tua media): "
 
 echo.
-python "%PASTA%ranking.py" --nicho "%NICHO%" --plataformas "%PLAT%" --views "%VIEWS%"
+python "%PASTA%ranking.py" --nicho "%NICHO%" --plataformas "%PLAT%" --views "%VIEWS%" --resumo
 if errorlevel 1 (
     echo.
     echo [ERRO] Algo correu mal. Copia a mensagem acima e manda-ma.
@@ -41,6 +41,8 @@ if /i "%ABRIR%"=="S" (
     start "" notepad "%PASTA%campanhas.csv"
     start "" notepad "%PASTA%submissoes.csv"
 )
+for /f %%d in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd"') do set "HOJE=%%d"
+if exist "%PASTA%resumo-%HOJE%.md" start "" notepad "%PASTA%resumo-%HOJE%.md"
 
 :fim
 echo.

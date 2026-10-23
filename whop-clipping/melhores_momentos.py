@@ -9,11 +9,13 @@ Exemplos:
     python melhores_momentos.py "https://youtube.com/watch?v=..."
     python melhores_momentos.py stream.mp4 --top 10 --cortar --vertical --legendas
     python melhores_momentos.py stream.mp4 --palavras "warhammer,space marine,heresia"
+    python melhores_momentos.py stream.mp4 --nicho warhammer
 
 Requisitos (grátis): ffmpeg no PATH e `pip install faster-whisper yt-dlp`.
 """
 
 import argparse
+import functools
 import json
 import math
 import re
@@ -37,6 +39,26 @@ PALAVRAS_GANCHO = [
     "look", "seriously", "hate", "love", "shocking", "first time", "can't believe",
     "the problem", "no one", "the reason", "what the", "oh my god", "let's go",
 ]
+
+# Listas prontas de palavras por nicho (--nicho). Somam-se às PALAVRAS_GANCHO.
+NICHOS = {
+    "warhammer": [
+        "warhammer", "40k", "space marine", "space marines", "astartes", "emperor",
+        "imperador", "imperium", "heresy", "heresia", "heretic", "herege", "chaos", "caos",
+        "horus", "primarch", "primarca", "custodes", "inquisitor", "inquisição", "ork",
+        "orks", "waaagh", "eldar", "aeldari", "necron", "necrons", "tyranid", "tyranids",
+        "tau", "sororitas", "adeptus", "mechanicus", "khorne", "nurgle", "tzeentch",
+        "slaanesh", "abaddon", "guilliman", "terminator", "dreadnought", "titan", "lore",
+        "boltgun", "chainsword", "for the emperor", "blood for the blood god",
+        "darktide", "space marine 2", "rogue trader", "dawn of war",
+    ],
+    "gaming": [
+        "clutch", "boss", "speedrun", "glitch", "bug", "rage", "noob", "pro", "gg",
+        "headshot", "one shot", "combo", "win", "vitória", "perdi", "ganhei",
+        "morreu", "morri", "jogo", "game", "level", "nível", "loot", "build", "meta",
+        "patch", "nerf", "buff", "op", "broken", "partida", "ranked", "streamer",
+    ],
+}
 
 RE_NUMERO = re.compile(r"\b\d+[\d.,]*\s*(%|k|mil|milhões|million|euros?|dólares|dollars|\$)?", re.I)
 FIM_FRASE = (".", "!", "?", "…")
@@ -112,9 +134,15 @@ def transcrever(wav: Path, modelo: str, idioma: str | None, gpu: bool = False):
     return resultado, info.language
 
 
+@functools.lru_cache(maxsize=4)
+def regex_ganchos(ganchos: tuple) -> re.Pattern:
+    # Palavras inteiras: "op" não conta dentro de "operação", nem "pro" em "problema".
+    alternativas = sorted({re.escape(g) for g in ganchos}, key=len, reverse=True)
+    return re.compile(r"(?<!\w)(?:" + "|".join(alternativas) + r")(?!\w)")
+
+
 def contar_ganchos(texto: str, ganchos: list[str]) -> int:
-    t = texto.lower()
-    return sum(t.count(g) for g in ganchos)
+    return len(regex_ganchos(tuple(ganchos)).findall(texto.lower()))
 
 
 def pontuar_gancho(texto: str, ganchos: list[str]) -> float:
@@ -240,6 +268,8 @@ def main():
     ap.add_argument("--idioma", default=None, help="pt, en... (padrão: deteta sozinho)")
     ap.add_argument("--palavras", default="",
                     help="Palavras extra do nicho, separadas por vírgulas")
+    ap.add_argument("--nicho", default="",
+                    help="Lista pronta de palavras: " + ", ".join(NICHOS) + " (pode juntar: warhammer,gaming)")
     ap.add_argument("--saida", default="momentos", help="Pasta de saída (padrão ./momentos)")
     ap.add_argument("--cortar", action="store_true", help="Exporta cada momento em MP4")
     ap.add_argument("--vertical", action="store_true", help="Corta ao centro para 9:16")
@@ -250,6 +280,10 @@ def main():
     pasta = Path(a.saida)
     pasta.mkdir(parents=True, exist_ok=True)
     ganchos = PALAVRAS_GANCHO + [p.strip().lower() for p in a.palavras.split(",") if p.strip()]
+    for nicho in filter(None, (n.strip().lower() for n in a.nicho.split(","))):
+        if nicho not in NICHOS:
+            sys.exit(f"Nicho desconhecido: {nicho}. Opções: {', '.join(NICHOS)}")
+        ganchos += NICHOS[nicho]
 
     video = obter_video(a.fonte, pasta)
     wav = extrair_audio(video, pasta)

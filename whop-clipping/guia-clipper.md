@@ -128,6 +128,9 @@ python melhores_momentos.py stream.mp4 --top 10 --cortar --vertical --legendas
 
 # Dar palavras do nicho para pesarem mais
 python melhores_momentos.py stream.mp4 --palavras "warhammer,space marine,heresia" --idioma pt
+
+# Lista pronta de ~50 palavras de Warhammer (e/ou gaming)
+python melhores_momentos.py stream.mp4 --nicho warhammer,gaming
 ```
 
 Gera na pasta `momentos/`: `momentos.md` (relatório), `momentos.json`, `transcricao.txt`, um `.srt` por clip e, com `--cortar`, um `.mp4` por clip.
@@ -160,6 +163,8 @@ No Windows basta dar duplo clique em **`ranking.bat`** — pergunta o nicho e as
 
 **Ganho por clip:** a coluna `ganho/clip` = views × CPM ÷ 1000, usando a tua média de views em `submissoes.csv` (ou `--views 15000`). Serve para comparar campanhas, não é garantia — confirma mínimo de views e máximo por vídeo de cada campanha.
 
+**Resumo semanal:** `python ranking.py --resumo` (o `ranking.bat` faz sempre) grava `resumo-AAAA-MM-DD.md` com o ganho e as views dos últimos 7 dias, o melhor clip, o top 3 de campanhas e as que esgotam em < 7 dias — abre no Bloco de Notas, pronto a guardar ou partilhar.
+
 **Histórico:** cada vez que corres, as campanhas são guardadas em `historico.csv` pela `data`. Atualiza a coluna `data` sempre que colares dados novos — a partir da segunda semana aparece a coluna **esgota em** (dias até o orçamento acabar, ao ritmo atual).
 O script ordena por `(total − pago) ÷ clippers`, marca ⚠ campanhas com < 20% de orçamento ou de casino, esconde as que não aceitam as tuas plataformas, e lista os teus clips por views com o total ganho.
 
@@ -175,7 +180,7 @@ O script ordena por `(total − pago) ÷ clippers`, marca ⚠ campanhas com < 20
 - [ ] Confirmar regras: plataformas, duração, legendas, hashtags, mínimo de views
 
 **Produzir (1–2 h)**
-- [ ] Descarregar material → `melhores_momentos.bat` (palavras do nicho, ex.: `warhammer`)
+- [ ] Descarregar material → `melhores_momentos.bat` (nicho 1 = warhammer, 2 = gaming, 3 = os dois)
 - [ ] Escolher 3–5 momentos; gancho forte nos primeiros 2–3 s
 - [ ] Cortar 9:16, legendas grandes, sem marcas de água
 
@@ -190,4 +195,4 @@ O script ordena por `(total − pago) ÷ clippers`, marca ⚠ campanhas com < 20
 
 **Semanal (domingo)**
 - [ ] `ranking.bat` → ver coluna **esgota em**; largar campanhas com < 7 dias ou ⚠
-- [ ] Ver o total ganho e o melhor clip da semana
+- [ ] Ler o `resumo-AAAA-MM-DD.md` (total ganho, melhor clip, top 3)

@@ -67,8 +67,16 @@ set /p "TOP=Quantos momentos queres? [8]: "
 set "IDIOMA="
 set /p "IDIOMA=Idioma do video (pt, en... vazio = detetar sozinho): "
 
+echo Nicho: 1 = warhammer  2 = gaming  3 = os dois  vazio = nenhum
+set "N="
+set /p "N=Escolhe: "
+set "NICHO="
+if "%N%"=="1" set "NICHO=warhammer"
+if "%N%"=="2" set "NICHO=gaming"
+if "%N%"=="3" set "NICHO=warhammer,gaming"
+
 set "PALAVRAS="
-set /p "PALAVRAS=Palavras do nicho separadas por virgulas (opcional): "
+set /p "PALAVRAS=Palavras extra separadas por virgulas (opcional): "
 
 set "MODELO=small"
 echo Qualidade da transcricao: 1 = rapida (tiny)  2 = normal (small)  3 = melhor (medium)
@@ -86,6 +94,7 @@ set "SAIDA=%PASTA%momentos\%DATA%"
 set "ARGS=--top %TOP% --modelo %MODELO% --saida "%SAIDA%""
 if not "%IDIOMA%"=="" set "ARGS=%ARGS% --idioma %IDIOMA%"
 if /i "%CORTAR%"=="S" set "ARGS=%ARGS% --cortar --vertical --legendas"
+if not "%NICHO%"=="" set "ARGS=%ARGS% --nicho %NICHO%"
 
 rem ---------- 6. Correr ----------
 echo.
