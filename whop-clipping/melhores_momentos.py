@@ -10,6 +10,7 @@ Exemplos:
     python melhores_momentos.py stream.mp4 --top 10 --cortar --vertical --legendas
     python melhores_momentos.py stream.mp4 --palavras "warhammer,space marine,heresia"
     python melhores_momentos.py stream.mp4 --nicho warhammer
+    python melhores_momentos.py stream.mp4 --cortar --vertical --layout empilhado --camera id
 
 Requisitos (grátis): ffmpeg no PATH e `pip install faster-whisper yt-dlp`.
 """
@@ -238,20 +239,47 @@ def escrever_srt(segs, clip, destino: Path, por_linha=3):
     destino.write_text("\n".join(linhas), encoding="utf-8")
 
 
-def cortar(video: Path, clip, saida: Path, vertical: bool, srt: Path | None):
-    filtros = []
-    if vertical:
-        filtros.append("crop='min(iw,ih*9/16)':ih,scale=1080:1920")
+CANTOS = {  # posição da câmara do streamer no vídeo original
+    "se": ("0", "0"),                        # superior esquerdo
+    "sd": ("in_w-out_w", "0"),               # superior direito
+    "ie": ("0", "in_h-out_h"),               # inferior esquerdo
+    "id": ("in_w-out_w", "in_h-out_h"),      # inferior direito
+}
+ALTURA_CAM = 608  # 1080x608 = 16:9; o jogo fica com os 1312 px de cima
+
+
+def estilo_legendas(margem_v):
+    return ("FontName=Arial,Bold=1,FontSize=16,PrimaryColour=&H00FFFFFF,"
+            f"OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,Alignment=2,MarginV={margem_v}")
+
+
+def cortar(video: Path, clip, saida: Path, vertical: bool, srt: Path | None,
+           layout: str = "centro", camera: str = "id", tam_camera: float = 0.3):
+    legendas = ""
     if srt:
         caminho = str(srt.resolve()).replace("\\", "/").replace(":", r"\:").replace("'", r"\'")
-        filtros.append(
-            f"subtitles='{caminho}':force_style='FontName=Arial,Bold=1,FontSize=16,"
-            "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,"
-            "Outline=3,Shadow=0,Alignment=2,MarginV=70'")
+        # Empilhado: legendas logo acima da câmara (escala do libass: 288 de altura).
+        margem = 100 if vertical and layout == "empilhado" else 70
+        legendas = f"subtitles='{caminho}':force_style='{estilo_legendas(margem)}'"
+
     cmd = ["ffmpeg", "-y", "-v", "error", "-ss", str(clip["ini"]), "-i", str(video),
            "-t", str(clip["duracao"])]
-    if filtros:
-        cmd += ["-vf", ",".join(filtros)]
+    if vertical and layout == "empilhado":
+        x, y = CANTOS[camera]
+        alt_jogo = 1920 - ALTURA_CAM
+        grafo = (f"[0:v]split=2[a][b];"
+                 f"[a]crop='min(iw,ih*1080/{alt_jogo})':ih,scale=1080:{alt_jogo},setsar=1[jogo];"
+                 f"[b]crop=iw*{tam_camera}:ih*{tam_camera}:{x}:{y},scale=1080:{ALTURA_CAM},setsar=1[cam];"
+                 f"[jogo][cam]vstack[v]")
+        if legendas:
+            grafo += f";[v]{legendas}[v2]"
+        cmd += ["-filter_complex", grafo, "-map", "[v2]" if legendas else "[v]", "-map", "0:a?"]
+    else:
+        filtros = ["crop='min(iw,ih*9/16)':ih,scale=1080:1920"] if vertical else []
+        if legendas:
+            filtros.append(legendas)
+        if filtros:
+            cmd += ["-vf", ",".join(filtros)]
     cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(saida)]
     correr(cmd)
@@ -265,14 +293,20 @@ def main():
     ap.add_argument("--max", type=float, default=45, help="Duração máxima em s (padrão 45)")
     ap.add_argument("--modelo", default="small",
                     help="Modelo Whisper: tiny, base, small, medium, large-v3 (padrão small)")
-    ap.add_argument("--idioma", default=None, help="pt, en... (padrão: deteta sozinho)")
+    ap.add_argument("--idioma", default="en", help="en, pt... ou auto para detetar (padrão en)")
     ap.add_argument("--palavras", default="",
                     help="Palavras extra do nicho, separadas por vírgulas")
     ap.add_argument("--nicho", default="",
                     help="Lista pronta de palavras: " + ", ".join(NICHOS) + " (pode juntar: warhammer,gaming)")
     ap.add_argument("--saida", default="momentos", help="Pasta de saída (padrão ./momentos)")
     ap.add_argument("--cortar", action="store_true", help="Exporta cada momento em MP4")
-    ap.add_argument("--vertical", action="store_true", help="Corta ao centro para 9:16")
+    ap.add_argument("--vertical", action="store_true", help="Exporta em 9:16")
+    ap.add_argument("--layout", choices=["centro", "empilhado"], default="centro",
+                    help="centro = corte ao meio; empilhado = jogo em cima, câmara em baixo")
+    ap.add_argument("--camera", choices=list(CANTOS), default="id",
+                    help="Canto da câmara no original: se, sd, ie, id (padrão id = inferior direito)")
+    ap.add_argument("--tam-camera", type=float, default=0.3,
+                    help="Tamanho da câmara em fração do vídeo (padrão 0.3 = 30%%)")
     ap.add_argument("--legendas", action="store_true", help="Queima legendas no vídeo")
     ap.add_argument("--gpu", action="store_true", help="Usa a placa NVIDIA (precisa de CUDA)")
     a = ap.parse_args()
@@ -287,7 +321,8 @@ def main():
 
     video = obter_video(a.fonte, pasta)
     wav = extrair_audio(video, pasta)
-    segs, idioma = transcrever(wav, a.modelo, a.idioma, a.gpu)
+    idioma_pedido = None if a.idioma.lower() == "auto" else a.idioma
+    segs, idioma = transcrever(wav, a.modelo, idioma_pedido, a.gpu)
     if not segs:
         sys.exit("Não foi encontrada fala no vídeo.")
 
@@ -307,7 +342,8 @@ def main():
         if a.cortar:
             mp4 = pasta / f"clip_{n:02d}.mp4"
             print(f"    a cortar {mp4.name} ({fmt(c['ini'])}–{fmt(c['fim'])})")
-            cortar(video, c, mp4, a.vertical, srt if a.legendas else None)
+            cortar(video, c, mp4, a.vertical, srt if a.legendas else None,
+                   a.layout, a.camera, a.tam_camera)
         rel += [f"\n## Clip {n:02d} — {fmt(c['ini'])} → {fmt(c['fim'])} "
                 f"({c['duracao']} s) · #{c['posicao']} · pontuação {c['pontuacao']}\n",
                 f"**Gancho:** {c['gancho']}\n",

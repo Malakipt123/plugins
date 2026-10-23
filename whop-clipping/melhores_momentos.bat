@@ -64,8 +64,8 @@ echo.
 set "TOP=8"
 set /p "TOP=Quantos momentos queres? [8]: "
 
-set "IDIOMA="
-set /p "IDIOMA=Idioma do video (pt, en... vazio = detetar sozinho): "
+set "IDIOMA=en"
+set /p "IDIOMA=Idioma do video (en, pt... ou auto) [en]: "
 
 echo Nicho: 1 = warhammer  2 = gaming  3 = os dois  vazio = nenhum
 set "N="
@@ -88,12 +88,31 @@ if "%Q%"=="3" set "MODELO=medium"
 set "CORTAR=S"
 set /p "CORTAR=Exportar os clips em 9:16 com legendas? (S/N) [S]: "
 
+set "LAYOUT=empilhado"
+set "CAM=id"
+if /i "%CORTAR%"=="S" (
+    echo Formato: 1 = jogo em cima + camara em baixo   2 = corte simples ao centro
+    set "L=1"
+    set /p "L=Escolhe [1]: "
+)
+if "%L%"=="2" set "LAYOUT=centro"
+if /i "%CORTAR%"=="S" if "%LAYOUT%"=="empilhado" (
+    echo Onde esta a camara no video original?
+    echo   1 = em cima a esquerda   2 = em cima a direita
+    echo   3 = em baixo a esquerda  4 = em baixo a direita
+    set "C=4"
+    set /p "C=Escolhe [4]: "
+)
+if "%C%"=="1" set "CAM=se"
+if "%C%"=="2" set "CAM=sd"
+if "%C%"=="3" set "CAM=ie"
+
 for /f %%d in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH-mm"') do set "DATA=%%d"
 set "SAIDA=%PASTA%momentos\%DATA%"
 
 set "ARGS=--top %TOP% --modelo %MODELO% --saida "%SAIDA%""
 if not "%IDIOMA%"=="" set "ARGS=%ARGS% --idioma %IDIOMA%"
-if /i "%CORTAR%"=="S" set "ARGS=%ARGS% --cortar --vertical --legendas"
+if /i "%CORTAR%"=="S" set "ARGS=%ARGS% --cortar --vertical --legendas --layout %LAYOUT% --camera %CAM%"
 if not "%NICHO%"=="" set "ARGS=%ARGS% --nicho %NICHO%"
 
 rem ---------- 6. Correr ----------

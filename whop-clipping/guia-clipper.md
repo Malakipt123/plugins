@@ -137,7 +137,11 @@ Gera na pasta `momentos/`: `momentos.md` (relatório), `momentos.json`, `transcr
 
 Como pontua cada janela de 15–45 s: gancho na primeira frase (palavras fortes, pergunta, número, frase curta), densidade de palavras-gancho, ritmo de fala, volume/gritos acima da média, termina numa frase completa e duração de 20–35 s.
 
-Dicas: `--modelo tiny` é muito rápido para testar; `--modelo medium` transcreve melhor em português. O corte 9:16 é ao centro — se a ação estiver de lado, ajusta no CapCut.
+**Idioma:** o padrão é inglês (`--idioma en`), que é mais rápido e mais certo do que detetar sozinho. Para vídeos em português usa `--idioma pt`; para detetar usa `--idioma auto`.
+
+**Formato 9:16 para gaming (padrão no `.bat`):** `--layout empilhado` põe o jogo em cima (1080×1312) e a câmara do streamer em baixo (1080×608), com as legendas entre os dois. Diz onde está a câmara no vídeo original com `--camera se|sd|ie|id` (superior/inferior, esquerda/direita) e o tamanho com `--tam-camera 0.3` (30% da largura e da altura). Se a câmara sair cortada, ajusta esse valor (0.25 ou 0.35). Sem câmara, usa `--layout centro`.
+
+Dicas: `--modelo tiny` é muito rápido para testar; `--modelo medium` transcreve melhor.
 
 ---
 
