@@ -1,0 +1,444 @@
+#!/usr/bin/env python3
+"""Encontra os melhores momentos de um vídeo longo para fazer clips.
+
+Fluxo: descarrega (yt-dlp) -> transcreve (faster-whisper) -> mede o volume
+(ffmpeg) -> pontua janelas de 15-45 s -> escolhe as melhores sem sobreposição.
+Opcionalmente corta os clips em 9:16 com legendas queimadas.
+
+Exemplos:
+    python melhores_momentos.py "https://youtube.com/watch?v=..."
+    python melhores_momentos.py stream.mp4 --top 10 --cortar --vertical --legendas
+    python melhores_momentos.py stream.mp4 --palavras "warhammer,space marine,heresia"
+    python melhores_momentos.py stream.mp4 --nicho warhammer
+    python melhores_momentos.py "https://twitch.tv/videos/..." --de 1:20:00 --ate 1:50:00
+    python melhores_momentos.py stream.mp4 --cortar --vertical --layout empilhado --camera id
+
+Requisitos (grátis): ffmpeg no PATH e `pip install faster-whisper yt-dlp`.
+"""
+
+import argparse
+import functools
+import json
+import math
+import re
+import statistics
+import subprocess
+import sys
+from pathlib import Path
+
+# Palavras que costumam indicar um bom gancho (PT + EN).
+PALAVRAS_GANCHO = [
+    # português
+    "nunca", "ninguém", "ninguem", "segredo", "verdade", "incrível", "incrivel",
+    "louco", "loucura", "impossível", "impossivel", "pior", "melhor", "erro",
+    "mentira", "dinheiro", "milhões", "milhoes", "porquê",
+    "olha", "espera", "atenção", "atencao", "sério", "serio", "ridículo",
+    "ridiculo", "polémica", "polemica", "odeio", "adoro", "chocante", "primeira vez",
+    "não acredito", "nao acredito", "o problema", "ninguém fala", "a razão",
+    # inglês
+    "never", "nobody", "secret", "truth", "insane", "crazy", "impossible",
+    "worst", "best", "mistake", "lie", "money", "million", "why", "wait",
+    "look", "seriously", "hate", "love", "shocking", "first time", "can't believe",
+    "the problem", "no one", "the reason", "what the", "oh my god", "let's go",
+]
+
+# Listas prontas de palavras por nicho (--nicho). Somam-se às PALAVRAS_GANCHO.
+NICHOS = {
+    "warhammer": [
+        "warhammer", "40k", "space marine", "space marines", "astartes", "emperor",
+        "imperador", "imperium", "heresy", "heresia", "heretic", "herege", "chaos", "caos",
+        "horus", "primarch", "primarca", "custodes", "inquisitor", "inquisição", "ork",
+        "orks", "waaagh", "eldar", "aeldari", "necron", "necrons", "tyranid", "tyranids",
+        "tau", "sororitas", "adeptus", "mechanicus", "khorne", "nurgle", "tzeentch",
+        "slaanesh", "abaddon", "guilliman", "terminator", "dreadnought", "titan", "lore",
+        "boltgun", "chainsword", "for the emperor", "blood for the blood god",
+        "darktide", "space marine 2", "rogue trader", "dawn of war",
+    ],
+    "gaming": [
+        "clutch", "boss", "speedrun", "glitch", "bug", "rage", "noob", "pro", "gg",
+        "headshot", "one shot", "combo", "win", "vitória", "perdi", "ganhei",
+        "morreu", "morri", "jogo", "game", "level", "nível", "loot", "build", "meta",
+        "patch", "nerf", "buff", "op", "broken", "partida", "ranked", "streamer",
+    ],
+}
+
+RE_NUMERO = re.compile(r"\b\d+[\d.,]*\s*(%|k|mil|milhões|million|euros?|dólares|dollars|\$)?", re.I)
+FIM_FRASE = (".", "!", "?", "…")
+
+
+def correr(cmd, **kw):
+    return subprocess.run(cmd, check=True, text=True, capture_output=True, **kw)
+
+
+def segundos(valor: str | None) -> float | None:
+    """'1:23:45', '83:00' ou '4980' -> segundos."""
+    if not valor:
+        return None
+    try:
+        total = 0.0
+        for parte in valor.strip().split(":"):
+            total = total * 60 + float(parte)
+        return total
+    except ValueError:
+        sys.exit(f"Tempo inválido: {valor} (usa 1:23:45, 83:00 ou 4980)")
+
+
+def obter_video(fonte: str, pasta: Path, de: float | None = None, ate: float | None = None) -> Path:
+    """Ficheiro local ou link (YouTube, Twitch, Kick, ...); opcionalmente só o trecho de..ate."""
+    trecho = de is not None or ate is not None
+    if Path(fonte).exists():
+        video = Path(fonte).resolve()
+        if not trecho:
+            return video
+        print(f"[1/4] A extrair o trecho {fmt(de or 0)}–{fmt(ate) if ate else 'fim'} ...")
+        saida = pasta / "trecho.mp4"
+        cmd = ["ffmpeg", "-y", "-v", "error", "-ss", str(de or 0), "-i", str(video)]
+        if ate:
+            cmd += ["-t", str(ate - (de or 0))]
+        correr(cmd + ["-c", "copy", str(saida)])
+        return saida
+    if not re.match(r"^https?://", fonte):
+        sys.exit(f"Fonte não encontrada: {fonte}")
+    try:
+        import yt_dlp
+        from yt_dlp.utils import download_range_func
+    except ImportError:
+        sys.exit("Falta o yt-dlp: pip install yt-dlp")
+    print(f"[1/4] A descarregar {fonte} ...")
+    opcoes = {
+        "outtmpl": str(pasta / "video.%(ext)s"),
+        # Twitch/Kick dão streams HLS sem "ext=mp4"; o último "/b" apanha esses.
+        "format": "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/bv*[height<=1080]+ba/b[height<=1080]/b",
+        "merge_output_format": "mp4",
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+    }
+    if trecho:
+        # Streams de horas: descarrega só o pedaço que interessa.
+        opcoes["download_ranges"] = download_range_func(None, [(de or 0, ate or float("inf"))])
+        opcoes["force_keyframes_at_cuts"] = True
+    with yt_dlp.YoutubeDL(opcoes) as ydl:
+        info = ydl.extract_info(fonte, download=True)
+        feitos = info.get("requested_downloads") or []
+        if feitos and feitos[0].get("filepath"):
+            return Path(feitos[0]["filepath"])
+        return Path(ydl.prepare_filename(info)).with_suffix(".mp4")
+
+
+def extrair_audio(video: Path, pasta: Path) -> Path:
+    wav = pasta / "audio16k.wav"
+    correr(["ffmpeg", "-y", "-v", "error", "-i", str(video), "-vn", "-ac", "1",
+            "-ar", "16000", str(wav)])
+    return wav
+
+
+def volume_por_segundo(wav: Path) -> list[float]:
+    """Nível RMS (dB) de cada segundo de áudio."""
+    r = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(wav), "-af",
+         "asetnsamples=16000,astats=metadata=1:reset=1,"
+         "ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-",
+         "-f", "null", "-"],
+        text=True, capture_output=True, check=True)
+    niveis = []
+    for linha in r.stdout.splitlines():
+        if "RMS_level=" in linha:
+            v = linha.split("=", 1)[1]
+            niveis.append(-90.0 if v in ("-inf", "inf", "nan") else max(float(v), -90.0))
+    return niveis
+
+
+def transcrever(wav: Path, modelo: str, idioma: str | None, gpu: bool = False):
+    try:
+        from faster_whisper import WhisperModel
+    except ImportError:
+        sys.exit("Falta o faster-whisper: pip install faster-whisper")
+    print(f"[2/4] A transcrever com o modelo '{modelo}' (pode demorar) ...")
+    # CPU por defeito: no Windows a GPU precisa de CUDA/cuDNN instalados à parte.
+    m = WhisperModel(modelo, device="cuda" if gpu else "cpu",
+                     compute_type="float16" if gpu else "int8")
+    segs, info = m.transcribe(str(wav), language=idioma, vad_filter=True,
+                              word_timestamps=True)
+    resultado = []
+    for s in segs:
+        palavras = [{"w": p.word.strip(), "ini": p.start, "fim": p.end}
+                    for p in (s.words or []) if p.word.strip()]
+        resultado.append({"ini": s.start, "fim": s.end, "texto": s.text.strip(),
+                          "palavras": palavras})
+        print(f"    {fmt(s.start)}  {s.text.strip()[:80]}", flush=True)
+    return resultado, info.language
+
+
+@functools.lru_cache(maxsize=4)
+def regex_ganchos(ganchos: tuple) -> re.Pattern:
+    # Palavras inteiras: "op" não conta dentro de "operação", nem "pro" em "problema".
+    alternativas = sorted({re.escape(g) for g in ganchos}, key=len, reverse=True)
+    return re.compile(r"(?<!\w)(?:" + "|".join(alternativas) + r")(?!\w)")
+
+
+def contar_ganchos(texto: str, ganchos: list[str]) -> int:
+    return len(regex_ganchos(tuple(ganchos)).findall(texto.lower()))
+
+
+def pontuar_gancho(texto: str, ganchos: list[str]) -> float:
+    p = 3.0 * min(contar_ganchos(texto, ganchos), 2)
+    p += 2.0 if "?" in texto else 0
+    p += 1.0 if "!" in texto else 0
+    p += 1.0 if RE_NUMERO.search(texto) else 0
+    p += 1.0 if len(texto.split()) <= 14 else 0
+    return p
+
+
+def zscore(v, media, desvio):
+    return 0.0 if desvio == 0 else (v - media) / desvio
+
+
+def candidatos(segs, dmin, dmax):
+    for i in range(len(segs)):
+        for j in range(i, len(segs)):
+            dur = segs[j]["fim"] - segs[i]["ini"]
+            if dur > dmax:
+                break
+            if dur >= dmin:
+                yield i, j
+
+
+def pontuar(segs, niveis, ganchos, dmin, dmax):
+    vol_medio = statistics.fmean(niveis) if niveis else 0
+    vol_desvio = statistics.pstdev(niveis) if len(niveis) > 1 else 0
+    ritmos = [len(s["texto"].split()) / max(s["fim"] - s["ini"], 0.5) for s in segs]
+    ritmo_medio = statistics.fmean(ritmos) if ritmos else 0
+    ritmo_desvio = statistics.pstdev(ritmos) if len(ritmos) > 1 else 0
+
+    lista = []
+    for i, j in candidatos(segs, dmin, dmax):
+        ini, fim = segs[i]["ini"], segs[j]["fim"]
+        texto = " ".join(s["texto"] for s in segs[i:j + 1])
+        n_palavras = len(texto.split())
+        dur = fim - ini
+
+        gancho = pontuar_gancho(segs[i]["texto"], ganchos)
+        # Palavras-gancho por 100 palavras, limitado para não abafar o resto.
+        densidade = min(contar_ganchos(texto, ganchos) / max(n_palavras, 1) * 100, 5.0)
+        ritmo = zscore(n_palavras / dur, ritmo_medio, ritmo_desvio)
+        janela = niveis[int(ini):int(math.ceil(fim))] or [vol_medio]
+        volume = zscore(statistics.fmean(janela), vol_medio, vol_desvio)
+        pico = zscore(max(janela), vol_medio, vol_desvio)
+        fecho = 1.0 if segs[j]["texto"].endswith(FIM_FRASE) else 0.0
+        # Clips de 20-35 s tendem a reter melhor.
+        duracao = 1.0 if 20 <= dur <= 35 else 0.0
+
+        total = (2.0 * gancho + 1.0 * densidade + 1.0 * ritmo
+                 + 1.5 * volume + 0.5 * pico + fecho + duracao)
+        lista.append({
+            "ini": round(ini, 2), "fim": round(fim, 2), "duracao": round(dur, 1),
+            "pontuacao": round(total, 2), "gancho": segs[i]["texto"],
+            "texto": texto, "i": i, "j": j,
+            "detalhe": {"gancho": gancho, "densidade": round(densidade, 2),
+                        "ritmo": round(ritmo, 2), "volume": round(volume, 2),
+                        "pico": round(pico, 2)},
+        })
+    return lista
+
+
+TAGS_NICHO = {"warhammer": ["#warhammer40k", "#warhammer"], "gaming": ["#gaming", "#gamer"]}
+TAGS_BASE = ["#fyp", "#shorts"]
+
+
+def sugerir_titulo(texto: str, ganchos: list[str], limite=70) -> str:
+    """A frase mais forte do clip (mais palavras-gancho, pergunta ou exclamação)."""
+    frases = [f.strip() for f in re.split(r"(?<=[.!?…])\s+", texto) if len(f.split()) >= 3]
+    if not frases:
+        frases = [texto.strip()]
+    melhor = max(frases, key=lambda f: (contar_ganchos(f, ganchos)
+                                        + ("?" in f) + ("!" in f), -len(f)))
+    melhor = melhor.strip(" .…")
+    if len(melhor) > limite:
+        melhor = melhor[:limite].rsplit(" ", 1)[0] + "…"
+    return melhor[:1].upper() + melhor[1:]
+
+
+def sugerir_hashtags(texto: str, nichos: list[str], extra: list[str], maximo=6) -> list[str]:
+    termos = [t for n in nichos for t in NICHOS.get(n, [])] + extra
+    do_clip = [ "#" + re.sub(r"\W", "", t.lower())
+               for t in sorted(termos, key=len, reverse=True)  # termos longos primeiro
+               if contar_ganchos(texto, [t])]
+    do_nicho = [t for n in nichos for t in TAGS_NICHO.get(n, [])]
+    unicas = list(dict.fromkeys(t for t in do_clip[:2] + do_nicho if len(t) > 3))
+    return unicas[:maximo - len(TAGS_BASE)] + TAGS_BASE
+
+
+def escolher(lista, top, folga=5.0):
+    escolhidos = []
+    for c in sorted(lista, key=lambda c: c["pontuacao"], reverse=True):
+        if all(c["fim"] + folga <= e["ini"] or c["ini"] >= e["fim"] + folga
+               for e in escolhidos):
+            escolhidos.append(c)
+        if len(escolhidos) == top:
+            break
+    return escolhidos
+
+
+def fmt(seg, srt=False):
+    h, r = divmod(seg, 3600)
+    m, s = divmod(r, 60)
+    if srt:
+        return f"{int(h):02d}:{int(m):02d}:{int(s):02d},{int((s % 1) * 1000):03d}"
+    return f"{int(h):02d}:{int(m):02d}:{int(s):02d}" if h else f"{int(m):02d}:{int(s):02d}"
+
+
+def escrever_srt(segs, clip, destino: Path, por_linha=3):
+    """Legendas curtas (3 palavras) ao estilo TikTok, com tempos relativos ao clip."""
+    palavras = [p for s in segs[clip["i"]:clip["j"] + 1] for p in s["palavras"]]
+    linhas = []
+    for k in range(0, len(palavras), por_linha):
+        grupo = palavras[k:k + por_linha]
+        ini = max(grupo[0]["ini"] - clip["ini"], 0)
+        fim = max(grupo[-1]["fim"] - clip["ini"], ini + 0.2)
+        texto = " ".join(p["w"] for p in grupo).upper()
+        linhas.append(f"{len(linhas) + 1}\n{fmt(ini, True)} --> {fmt(fim, True)}\n{texto}\n")
+    destino.write_text("\n".join(linhas), encoding="utf-8")
+
+
+CANTOS = {  # posição da câmara do streamer no vídeo original
+    "se": ("0", "0"),                        # superior esquerdo
+    "sd": ("in_w-out_w", "0"),               # superior direito
+    "ie": ("0", "in_h-out_h"),               # inferior esquerdo
+    "id": ("in_w-out_w", "in_h-out_h"),      # inferior direito
+}
+ALTURA_CAM = 608  # 1080x608 = 16:9; o jogo fica com os 1312 px de cima
+
+
+def estilo_legendas(margem_v):
+    return ("FontName=Arial,Bold=1,FontSize=16,PrimaryColour=&H00FFFFFF,"
+            f"OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,Alignment=2,MarginV={margem_v}")
+
+
+def cortar(video: Path, clip, saida: Path, vertical: bool, srt: Path | None,
+           layout: str = "centro", camera: str = "id", tam_camera: float = 0.3):
+    legendas = ""
+    if srt:
+        caminho = str(srt.resolve()).replace("\\", "/").replace(":", r"\:").replace("'", r"\'")
+        # Empilhado: legendas logo acima da câmara (escala do libass: 288 de altura).
+        margem = 100 if vertical and layout == "empilhado" else 70
+        legendas = f"subtitles='{caminho}':force_style='{estilo_legendas(margem)}'"
+
+    cmd = ["ffmpeg", "-y", "-v", "error", "-ss", str(clip["ini"]), "-i", str(video),
+           "-t", str(clip["duracao"])]
+    if vertical and layout == "empilhado":
+        x, y = CANTOS[camera]
+        alt_jogo = 1920 - ALTURA_CAM
+        grafo = (f"[0:v]split=2[a][b];"
+                 f"[a]crop='min(iw,ih*1080/{alt_jogo})':ih,scale=1080:{alt_jogo},setsar=1[jogo];"
+                 f"[b]crop=iw*{tam_camera}:ih*{tam_camera}:{x}:{y},scale=1080:{ALTURA_CAM},setsar=1[cam];"
+                 f"[jogo][cam]vstack[v]")
+        if legendas:
+            grafo += f";[v]{legendas}[v2]"
+        cmd += ["-filter_complex", grafo, "-map", "[v2]" if legendas else "[v]", "-map", "0:a?"]
+    else:
+        filtros = ["crop='min(iw,ih*9/16)':ih,scale=1080:1920"] if vertical else []
+        if legendas:
+            filtros.append(legendas)
+        if filtros:
+            cmd += ["-vf", ",".join(filtros)]
+    cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(saida)]
+    correr(cmd)
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Encontra os melhores momentos para clips.")
+    ap.add_argument("fonte", help="Link (YouTube, Twitch, Kick...) ou ficheiro de vídeo")
+    ap.add_argument("--top", type=int, default=8, help="Nº de momentos (padrão 8)")
+    ap.add_argument("--min", type=float, default=15, help="Duração mínima em s (padrão 15)")
+    ap.add_argument("--max", type=float, default=45, help="Duração máxima em s (padrão 45)")
+    ap.add_argument("--modelo", default="small",
+                    help="Modelo Whisper: tiny, base, small, medium, large-v3 (padrão small)")
+    ap.add_argument("--idioma", default="en", help="en, pt... ou auto para detetar (padrão en)")
+    ap.add_argument("--palavras", default="",
+                    help="Palavras extra do nicho, separadas por vírgulas")
+    ap.add_argument("--nicho", default="",
+                    help="Lista pronta de palavras: " + ", ".join(NICHOS) + " (pode juntar: warhammer,gaming)")
+    ap.add_argument("--de", default=None, help="Começar neste tempo (ex.: 1:20:00) — útil em streams longos")
+    ap.add_argument("--ate", default=None, help="Acabar neste tempo (ex.: 1:50:00)")
+    ap.add_argument("--saida", default="momentos", help="Pasta de saída (padrão ./momentos)")
+    ap.add_argument("--cortar", action="store_true", help="Exporta cada momento em MP4")
+    ap.add_argument("--vertical", action="store_true", help="Exporta em 9:16")
+    ap.add_argument("--layout", choices=["centro", "empilhado"], default="centro",
+                    help="centro = corte ao meio; empilhado = jogo em cima, câmara em baixo")
+    ap.add_argument("--camera", choices=list(CANTOS), default="id",
+                    help="Canto da câmara no original: se, sd, ie, id (padrão id = inferior direito)")
+    ap.add_argument("--tam-camera", type=float, default=0.3,
+                    help="Tamanho da câmara em fração do vídeo (padrão 0.3 = 30%%)")
+    ap.add_argument("--legendas", action="store_true", help="Queima legendas no vídeo")
+    ap.add_argument("--gpu", action="store_true", help="Usa a placa NVIDIA (precisa de CUDA)")
+    a = ap.parse_args()
+
+    pasta = Path(a.saida)
+    pasta.mkdir(parents=True, exist_ok=True)
+    extra = [p.strip().lower() for p in a.palavras.split(",") if p.strip()]
+    ganchos = PALAVRAS_GANCHO + extra
+    nichos = [n.strip().lower() for n in a.nicho.split(",") if n.strip()]
+    for nicho in nichos:
+        if nicho not in NICHOS:
+            sys.exit(f"Nicho desconhecido: {nicho}. Opções: {', '.join(NICHOS)}")
+        ganchos += NICHOS[nicho]
+
+    de, ate = segundos(a.de), segundos(a.ate)
+    if de is not None and ate is not None and ate <= de:
+        sys.exit("--ate tem de ser depois de --de")
+    video = obter_video(a.fonte, pasta, de, ate)
+    wav = extrair_audio(video, pasta)
+    idioma_pedido = None if a.idioma.lower() == "auto" else a.idioma
+    segs, idioma = transcrever(wav, a.modelo, idioma_pedido, a.gpu)
+    if not segs:
+        sys.exit("Não foi encontrada fala no vídeo.")
+
+    print("[3/4] A medir o volume e a pontuar momentos ...")
+    niveis = volume_por_segundo(wav)
+    escolhidos = escolher(pontuar(segs, niveis, ganchos, a.min, a.max), a.top)
+    escolhidos.sort(key=lambda c: c["ini"])
+
+    print("[4/4] A gravar resultados ...")
+    rel = [f"# Melhores momentos — {video.name}\n",
+           f"Idioma: {idioma} · {len(escolhidos)} momentos\n"]
+    if de:
+        rel.append(f"_Tempos contados a partir de {fmt(de)} do vídeo original._\n")
+    ranking = sorted(escolhidos, key=lambda c: c["pontuacao"], reverse=True)
+    for n, c in enumerate(escolhidos, 1):
+        c["posicao"] = ranking.index(c) + 1
+        c["titulo"] = sugerir_titulo(c["texto"], ganchos)
+        c["hashtags"] = sugerir_hashtags(c["texto"], nichos, extra)
+        srt = pasta / f"clip_{n:02d}.srt"
+        escrever_srt(segs, c, srt)
+        if a.cortar:
+            mp4 = pasta / f"clip_{n:02d}.mp4"
+            print(f"    a cortar {mp4.name} ({fmt(c['ini'])}–{fmt(c['fim'])})")
+            cortar(video, c, mp4, a.vertical, srt if a.legendas else None,
+                   a.layout, a.camera, a.tam_camera)
+        rel += [f"\n## Clip {n:02d} — {fmt(c['ini'])} → {fmt(c['fim'])} "
+                f"({c['duracao']} s) · #{c['posicao']} · pontuação {c['pontuacao']}\n",
+                f"**Gancho:** {c['gancho']}\n",
+                f"**Título sugerido:** {c['titulo']}  \n"
+                f"**Hashtags:** {' '.join(c['hashtags'])}\n",
+                f"> {c['texto']}\n"]
+
+    (pasta / "momentos.md").write_text("\n".join(rel), encoding="utf-8")
+    limpo = [{k: v for k, v in c.items() if k not in ("i", "j")} for c in escolhidos]
+    (pasta / "momentos.json").write_text(json.dumps(limpo, ensure_ascii=False, indent=2),
+                                         encoding="utf-8")
+    (pasta / "transcricao.txt").write_text(
+        "\n".join(f"[{fmt(s['ini'])}] {s['texto']}" for s in segs), encoding="utf-8")
+    wav.unlink(missing_ok=True)
+
+    print("\nTop momentos:")
+    for c in ranking:
+        print(f"  #{c['posicao']}  {fmt(c['ini'])}–{fmt(c['fim'])}  "
+              f"({c['pontuacao']})  {c['gancho'][:70]}")
+    print(f"\nResultados em {pasta.resolve()}/ (momentos.md, momentos.json, .srt"
+          f"{', .mp4' if a.cortar else ''})")
+
+
+if __name__ == "__main__":
+    main()
