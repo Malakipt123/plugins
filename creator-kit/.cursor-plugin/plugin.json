@@ -1,0 +1,33 @@
+{
+  "name": "creator-kit",
+  "displayName": "Creator Kit",
+  "version": "0.1.0",
+  "description": "Paper-trade Monte Carlo replays, a folder-based AI video editor, code-driven motion videos, and designer-grade animated websites checked with Playwright.",
+  "author": {
+    "name": "Malakipt123"
+  },
+  "homepage": "https://github.com/Malakipt123/plugins/tree/main/creator-kit",
+  "repository": "https://github.com/Malakipt123/plugins",
+  "license": "MIT",
+  "category": "developer-tools",
+  "keywords": [
+    "trading",
+    "paper-trading",
+    "monte-carlo",
+    "video-editing",
+    "ffmpeg",
+    "whisper",
+    "motion-graphics",
+    "remotion",
+    "web-design",
+    "framer-motion",
+    "playwright"
+  ],
+  "tags": [
+    "creator",
+    "video",
+    "design",
+    "trading"
+  ],
+  "skills": "./skills/"
+}
