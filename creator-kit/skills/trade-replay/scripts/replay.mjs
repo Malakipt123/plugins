@@ -3,7 +3,8 @@
 // many times by bootstrapping the bar-to-bar returns seen so far, and counts
 // how often the target or the stop is touched first. Paper analysis only.
 
-import { readFileSync } from "fs";
+import { readFileSync, realpathSync } from "fs";
+import { fileURLToPath } from "url";
 
 const HELP = `Usage: replay.mjs --csv <bars.csv> --entry <price> --target <price> --stop <price> [options]
 
@@ -175,7 +176,9 @@ function main() {
   console.log(`  end price p10/p50/p90: ${f(result.endPrice.p10)} / ${f(result.endPrice.p50)} / ${f(result.endPrice.p90)}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Compared as resolved paths so it also works on Windows and through symlinks.
+const invokedDirectly = process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+if (invokedDirectly) {
   try {
     main();
   } catch (err) {
