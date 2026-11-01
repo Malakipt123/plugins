@@ -149,6 +149,8 @@ Como pontua cada janela de 15–45 s: gancho na primeira frase (palavras fortes,
 
 **Título e hashtags:** cada clip no `momentos.md` traz um **título sugerido** (a frase mais forte do clip) e **hashtags** (termos do nicho que aparecem no clip + `#warhammer40k`/`#gaming` + `#fyp #shorts`). Revê antes de publicar e confirma as hashtags obrigatórias da campanha.
 
+**Gancho no ecrã (ligado por defeito):** nos primeiros 3 s aparece o título do clip numa caixa amarela no topo. Dá a quem está a deslizar uma razão para ficar e torna o clip mais "teu" (menos conteúdo reutilizado). Para desligar: `--sem-gancho`.
+
 **O `.bat` lembra-se das tuas respostas** (nicho, idioma, formato, canto da câmara) em `preferencias.bat` — na próxima vez basta carregar Enter.
 
 Dicas: `--modelo tiny` é muito rápido para testar; `--modelo medium` transcreve melhor.
@@ -212,3 +214,27 @@ O script ordena por `(total − pago) ÷ clippers`, marca ⚠ campanhas com < 20
 **Semanal (domingo)**
 - [ ] `ranking.bat` → ver coluna **esgota em**; largar campanhas com < 7 dias ou ⚠
 - [ ] Ler o `resumo-AAAA-MM-DD.md` (total ganho, melhor clip, top 3)
+
+---
+
+## 10. Views baixas no YouTube Shorts (clips de outros streamers)
+
+O YouTube corta o alcance de clips que parecem **cópias sem alterações** ("conteúdo reutilizado") e de Shorts em que muita gente **desliza logo**. O que fazer:
+
+**Transformar cada clip** (quanto mais, melhor):
+- [ ] Gancho no ecrã nos primeiros 3 s (o script já faz)
+- [ ] Legendas próprias palavra a palavra (o script já faz)
+- [ ] Formato jogo + câmara em vez do vídeo original esticado (o script já faz)
+- [ ] **A tua voz**: 1–2 frases tuas no início ou no fim ("Isto é o pior build de sempre…") — é o que mais conta como conteúdo original
+- [ ] Cortar pausas e mortos; zoom nos momentos fortes (CapCut)
+
+**Os primeiros 2 segundos:**
+- [ ] Começar na ação ou na frase forte — nunca em "então…", loading ou menus
+- [ ] Em YouTube Studio → Shorts, ver **"Visto vs. deslizado"**: abaixo de ~60% visto, o gancho tem de mudar
+
+**Canal e publicação:**
+- [ ] Canal só de Warhammer/gaming (temas misturados confundem o algoritmo)
+- [ ] Título com palavras que se pesquisam: `Space Marine 2: Tyranid wipes the whole squad 😱`
+- [ ] 1–3 Shorts por dia, todos os dias, em vez de muitos de uma vez
+- [ ] Clips de 20–35 s que acabam numa frase completa (ajuda a ver outra vez)
+- [ ] Dar crédito ao streamer na descrição (`Clip from @streamer`)

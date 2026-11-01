@@ -16,6 +16,8 @@ Exemplos:
 Requisitos (grátis): ffmpeg no PATH e `pip install faster-whisper yt-dlp`.
 """
 
+from __future__ import annotations
+
 import argparse
 import functools
 import json
@@ -315,14 +317,50 @@ def estilo_legendas(margem_v):
             f"OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=0,Alignment=2,MarginV={margem_v}")
 
 
+def caminho_ffmpeg(ficheiro: Path) -> str:
+    return str(ficheiro.resolve()).replace("\\", "/").replace(":", r"\:").replace("'", r"\'")
+
+
+def escrever_gancho(texto: str, destino: Path, segundos_ecra=3.0, por_linha=20):
+    """Texto grande no topo nos primeiros segundos (para quem desliza e para não ser 'reutilizado').
+
+    Grava um .ass (não .srt) para controlar posição e caixa: texto preto em caixa amarela.
+    """
+    palavras, linhas, linha = texto.upper().split(), [], ""
+    for p in palavras:
+        if linha and len(linha) + 1 + len(p) > por_linha:
+            linhas.append(linha)
+            linha = p
+        else:
+            linha = f"{linha} {p}".strip()
+    linhas.append(linha)
+    fim = f"0:00:{segundos_ecra:05.2f}"
+    texto_ass = r"\N".join(linhas[:3])  # \N = quebra de linha no ASS
+    destino.write_text(
+        "[Script Info]\nScriptType: v4.00+\nPlayResX: 1080\nPlayResY: 1920\nWrapStyle: 2\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, "
+        "Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        # BorderStyle 3 = caixa opaca com a cor de OutlineColour (amarelo, &HBBGGRR).
+        "Style: Gancho,Arial,78,&H00000000,&H00000000,&H0000FFFF,&H00000000,"
+        "-1,0,0,0,100,100,0,0,3,14,0,8,60,60,150,1\n\n"
+        "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+        f"Dialogue: 0,0:00:00.00,{fim},Gancho,,0,0,0,,{texto_ass}\n",
+        encoding="utf-8")
+
+
 def cortar(video: Path, clip, saida: Path, vertical: bool, srt: Path | None,
-           layout: str = "centro", camera: str = "id", tam_camera: float = 0.3):
-    legendas = ""
+           layout: str = "centro", camera: str = "id", tam_camera: float = 0.3,
+           gancho: Path | None = None):
+    camadas = []
     if srt:
-        caminho = str(srt.resolve()).replace("\\", "/").replace(":", r"\:").replace("'", r"\'")
         # Empilhado: legendas logo acima da câmara (escala do libass: 288 de altura).
         margem = 100 if vertical and layout == "empilhado" else 70
-        legendas = f"subtitles='{caminho}':force_style='{estilo_legendas(margem)}'"
+        camadas.append(f"subtitles='{caminho_ffmpeg(srt)}':force_style='{estilo_legendas(margem)}'")
+    if gancho:
+        camadas.append(f"subtitles='{caminho_ffmpeg(gancho)}'")
+    legendas = ",".join(camadas)
 
     cmd = ["ffmpeg", "-y", "-v", "error", "-ss", str(clip["ini"]), "-i", str(video),
            "-t", str(clip["duracao"])]
@@ -372,6 +410,8 @@ def main():
     ap.add_argument("--tam-camera", type=float, default=0.3,
                     help="Tamanho da câmara em fração do vídeo (padrão 0.3 = 30%%)")
     ap.add_argument("--legendas", action="store_true", help="Queima legendas no vídeo")
+    ap.add_argument("--sem-gancho", action="store_true",
+                    help="Não pôr o título no topo nos primeiros 3 s (por defeito põe)")
     ap.add_argument("--gpu", action="store_true", help="Usa a placa NVIDIA (precisa de CUDA)")
     a = ap.parse_args()
 
@@ -415,8 +455,12 @@ def main():
         if a.cortar:
             mp4 = pasta / f"clip_{n:02d}.mp4"
             print(f"    a cortar {mp4.name} ({fmt(c['ini'])}–{fmt(c['fim'])})")
+            gancho = None
+            if not a.sem_gancho:
+                gancho = pasta / f"clip_{n:02d}_gancho.ass"
+                escrever_gancho(c["titulo"], gancho)
             cortar(video, c, mp4, a.vertical, srt if a.legendas else None,
-                   a.layout, a.camera, a.tam_camera)
+                   a.layout, a.camera, a.tam_camera, gancho)
         rel += [f"\n## Clip {n:02d} — {fmt(c['ini'])} → {fmt(c['fim'])} "
                 f"({c['duracao']} s) · #{c['posicao']} · pontuação {c['pontuacao']}\n",
                 f"**Gancho:** {c['gancho']}\n",
