@@ -81,7 +81,7 @@
     {
       "name": "unreal-game-studio",
       "source": "unreal-game-studio",
-      "description": "Unreal Engine 5.7 game-making studio: director, designer, programmer, audio and QA agents driving the editor through UnrealClaude, plus local music (ACE-Step) and lip-synced faces (Audio2Face-3D)."
+      "description": "Unreal Engine 5.7 game-making studio: director, designer, programmer, audio and QA agents driving the editor through UnrealClaude, plus local music (ACE-Step), ElevenLabs voice lines and lip-synced faces (Audio2Face-3D)."
     },
     {
       "name": "advisor",

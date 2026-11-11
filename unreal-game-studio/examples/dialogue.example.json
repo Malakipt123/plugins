@@ -1,0 +1,12 @@
+{
+  "model": "eleven_multilingual_v2",
+  "voices": {
+    "Elder": "REPLACE_WITH_VOICE_ID",
+    "Guard": "REPLACE_WITH_VOICE_ID"
+  },
+  "lines": [
+    { "id": "elder_greet_01", "character": "Elder", "text": "Bem-vindo, viajante. Há muito tempo que ninguém passava por esta aldeia." },
+    { "id": "elder_quest_01", "character": "Elder", "text": "As moedas desapareceram da fonte. Consegues encontrá-las?", "voice_settings": { "stability": 0.45, "style": 0.3 } },
+    { "id": "guard_halt_01", "character": "Guard", "text": "Alto! Ninguém passa sem autorização do ancião.", "voice_settings": { "stability": 0.3 } }
+  ]
+}

@@ -1,8 +1,8 @@
 {
   "name": "unreal-game-studio",
   "displayName": "Unreal Game Studio",
-  "version": "0.2.0",
-  "description": "Make Unreal Engine 5.7 games with an agent studio (director, designer, programmer, audio, QA) that drives the editor through UnrealClaude, plus local music (ACE-Step) and lip-synced faces (NVIDIA Audio2Face-3D).",
+  "version": "0.3.0",
+  "description": "Make Unreal Engine 5.7 games with an agent studio (director, designer, programmer, audio, QA) that drives the editor through UnrealClaude, plus local music (ACE-Step), ElevenLabs voice lines and lip-synced faces (NVIDIA Audio2Face-3D).",
   "author": {
     "name": "malakipt123"
   },
@@ -21,7 +21,9 @@
     "music",
     "ace-step",
     "audio2face",
-    "lip-sync"
+    "lip-sync",
+    "elevenlabs",
+    "voice"
   ],
   "category": "developer-tools",
   "tags": [

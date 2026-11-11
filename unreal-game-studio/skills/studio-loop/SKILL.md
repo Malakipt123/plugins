@@ -40,4 +40,4 @@ What changed in the level and Blueprints, what passed, what needs their play tes
 
 ## Audio and faces (audio-artist)
 
-Once the first slice plays, delegate to `audio-artist`: music per game state with the `game-music` skill (ACE-Step, local), and lip-synced dialogue with the `facial-animation` skill (NVIDIA Audio2Face-3D). Both are local installs: get the user's approval first. The gameplay-programmer then wires the assets into Blueprints and QA checks them.
+Once the first slice plays, delegate to `audio-artist`: music per game state with the `game-music` skill (ACE-Step, local), voice lines with the `voice-lines` skill (ElevenLabs), and lip-synced faces with the `facial-animation` skill (NVIDIA Audio2Face-3D, route A). Both are local installs: get the user's approval first. The gameplay-programmer then wires the assets into Blueprints and QA checks them.
