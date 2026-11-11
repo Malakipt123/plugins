@@ -1,8 +1,8 @@
 {
   "name": "unreal-game-studio",
   "displayName": "Unreal Game Studio",
-  "version": "0.1.0",
-  "description": "Make Unreal Engine 5.7 games with a small agent studio (director, designer, programmer, QA) that drives the editor through the UnrealClaude MCP bridge.",
+  "version": "0.2.0",
+  "description": "Make Unreal Engine 5.7 games with an agent studio (director, designer, programmer, audio, QA) that drives the editor through UnrealClaude, plus local music (ACE-Step) and lip-synced faces (NVIDIA Audio2Face-3D).",
   "author": {
     "name": "malakipt123"
   },
@@ -17,7 +17,11 @@
     "gamedev",
     "game-studio",
     "blueprints",
-    "mcp"
+    "mcp",
+    "music",
+    "ace-step",
+    "audio2face",
+    "lip-sync"
   ],
   "category": "developer-tools",
   "tags": [

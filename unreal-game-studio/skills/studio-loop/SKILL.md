@@ -38,6 +38,6 @@ Delegate to `qa-tester`. It returns a PASS / FAIL / NEEDS PLAYTEST table with ev
 
 What changed in the level and Blueprints, what passed, what needs their play test, and the next slice. Keep it short.
 
-## Optional companions (not installed by this plugin)
+## Audio and faces (audio-artist)
 
-Music, voice and facial animation can come from separate tools (for example a local text-to-music model or NVIDIA Audio2Face-3D). Suggest them only if the user asks, and get their approval before installing anything.
+Once the first slice plays, delegate to `audio-artist`: music per game state with the `game-music` skill (ACE-Step, local), and lip-synced dialogue with the `facial-animation` skill (NVIDIA Audio2Face-3D). Both are local installs: get the user's approval first. The gameplay-programmer then wires the assets into Blueprints and QA checks them.
