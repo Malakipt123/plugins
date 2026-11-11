@@ -1,0 +1,46 @@
+{
+  "name": "unreal-game-studio",
+  "displayName": "Unreal Game Studio",
+  "version": "0.1.0",
+  "description": "Make Unreal Engine 5.7 games with a small agent studio (director, designer, programmer, QA) that drives the editor through the UnrealClaude MCP bridge.",
+  "author": {
+    "name": "malakipt123"
+  },
+  "homepage": "https://github.com/Natfii/UnrealClaude",
+  "repository": "https://github.com/malakipt123/plugins",
+  "license": "MIT",
+  "logo": "assets/logo.svg",
+  "keywords": [
+    "unreal",
+    "unreal-engine",
+    "ue5",
+    "gamedev",
+    "game-studio",
+    "blueprints",
+    "mcp"
+  ],
+  "category": "developer-tools",
+  "tags": [
+    "gamedev",
+    "unreal",
+    "agents",
+    "mcp"
+  ],
+  "variables": {
+    "type": "object",
+    "properties": {
+      "UNREALCLAUDE_PLUGIN_DIR": {
+        "type": "string",
+        "title": "UnrealClaude plugin folder",
+        "description": "Absolute path to the installed UnrealClaude plugin, e.g. C:/MyGame/Plugins/UnrealClaude. Its Resources/mcp-bridge must have had `npm install` run."
+      }
+    },
+    "required": [
+      "UNREALCLAUDE_PLUGIN_DIR"
+    ]
+  },
+  "agents": "./agents/",
+  "skills": "./skills/",
+  "rules": "./rules/",
+  "mcpServers": "./mcp.json"
+}

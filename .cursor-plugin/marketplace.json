@@ -79,6 +79,11 @@
       "description": "Add Grok voice to an app: realtime speech-to-speech, speech-to-text dictation, text-to-speech read-aloud, and a log-driven fix loop for voice sessions."
     },
     {
+      "name": "unreal-game-studio",
+      "source": "unreal-game-studio",
+      "description": "Unreal Engine 5.7 game-making studio: director, designer, programmer and QA agents driving the editor through the UnrealClaude MCP bridge."
+    },
+    {
       "name": "advisor",
       "source": "advisor",
       "description": "Consult a stronger model before major decisions, when stuck, and before declaring done."

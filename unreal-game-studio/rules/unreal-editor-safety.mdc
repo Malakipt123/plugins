@@ -1,0 +1,13 @@
+---
+description: Safety rules when an agent changes an Unreal Engine project through the UnrealClaude MCP tools (unreal_* tools).
+alwaysApply: false
+---
+
+# Unreal editor safety
+
+- Confirm `unreal_status` before the first change in a session.
+- Inspect before modifying: query a Blueprint or the level actors before editing them.
+- Do not delete actors, assets or levels the agent did not create without the user's OK.
+- Do not call hidden script tools (`execute_script`, `run_console_command`) unless the user explicitly asks; never suggest enabling "Auto-approve script execution".
+- Work in source control: suggest a commit (Git LFS or Perforce for binary `.uasset`/`.umap`) before large changes.
+- After every change, check `unreal_get_output_log` for errors before saying it works.
